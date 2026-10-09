@@ -1,6 +1,6 @@
 /**
  * Type Loom — Studio Edition by Ramya
- * Generative Tactile Typography Engine with Figma-style Glass Controls.
+ * Generative Tactile Typography Engine with Horizontal Sub-Ribbon Dock.
  */
 
 class TypeLoomStudio {
@@ -12,28 +12,32 @@ class TypeLoomStudio {
     this.toastEl = document.getElementById('toast');
     this.artboardContainer = document.getElementById('artboard-container');
 
-    // UI Elements & Popovers
+    // Dock & Sub-Ribbon Elements
     this.paletteMenuTrigger = document.getElementById('palette-menu-trigger');
-    this.palettePopover = document.getElementById('palette-popover');
-    this.paletteListEl = document.getElementById('palette-list');
-    this.currentPalettePreview = document.getElementById('current-palette-preview');
-
     this.motionMenuTrigger = document.getElementById('motion-menu-trigger');
-    this.motionPopover = document.getElementById('motion-popover');
+    this.dockSubRibbon = document.getElementById('dock-sub-ribbon');
+    this.subRibbonPalettes = document.getElementById('sub-ribbon-palettes');
+    this.subRibbonEffects = document.getElementById('sub-ribbon-effects');
+    this.currentPalettePreview = document.getElementById('current-palette-preview');
     this.activeEffectNameEl = document.getElementById('active-effect-name');
 
+    // Controls
     this.sliderStroke = document.getElementById('slider-stroke');
     this.valStroke = document.getElementById('val-stroke');
     this.btnTogglePins = document.getElementById('btn-toggle-pins');
-    this.pinIconEl = document.getElementById('pin-icon');
+    this.pinStatusDot = document.getElementById('pin-status-dot');
     this.pinStatusText = document.getElementById('pin-status-text');
     this.btnToggleSound = document.getElementById('btn-toggle-sound');
-    this.soundIconEl = document.getElementById('sound-icon');
+    this.soundStatusDot = document.getElementById('sound-status-dot');
+    this.soundStatusText = document.getElementById('sound-status-text');
 
-    // State & Themes
+    // Themes
     this.themeKeys = Object.keys(LOOM_THEMES);
     this.currentThemeKey = 'figma'; // Default to Figma Brand Spectrum
     this.theme = LOOM_THEMES[this.currentThemeKey];
+
+    // Sub-Ribbon Active State: null | 'palettes' | 'effects'
+    this.activeSubMenu = null;
 
     // Effect State: 'breathe' | 'gust' | 'reach' | 'resonate' | 'visitor'
     this.currentEffect = 'breathe';
@@ -45,18 +49,16 @@ class TypeLoomStudio {
     this.tension = 0.85;
     this.gravity = 0.22;
 
-    // Typography & Centering State
+    // Typography State (Starts Blank)
     this.textString = '';
-    this.characters = []; // { id, char, x, y, width, height, pins: [] }
-    this.threads = [];    // LoomThread instances
-    this.shuttles = [];   // Needle shuttles
+    this.characters = [];
+    this.threads = [];
     this.fontSize = 110;
     this.letterSpacing = 22;
 
     // Mouse Tracking
     this.mousePrev = { x: 0, y: 0 };
     this.mouseCurr = { x: 0, y: 0 };
-    this.isMouseDown = false;
 
     // Visitor Entity
     this.visitor = { x: 200, y: 200, angle: 0 };
@@ -68,25 +70,19 @@ class TypeLoomStudio {
     this.resize();
     window.addEventListener('resize', () => this.resize());
 
-    // Auto-focus input on canvas click
+    // Auto-focus input on canvas click & handle outside clicks for ribbon
     window.addEventListener('click', (e) => {
-      // Close popovers if clicking outside
-      if (!e.target.closest('#palette-menu-trigger') && !e.target.closest('#palette-popover')) {
-        this.paletteMenuTrigger.classList.remove('open');
-      }
-      if (!e.target.closest('#motion-menu-trigger') && !e.target.closest('#motion-popover')) {
-        this.motionMenuTrigger.classList.remove('open');
+      if (!e.target.closest('.bottom-dock-wrapper')) {
+        this.closeSubRibbon();
       }
 
-      // Focus typing input
-      if (!e.target.closest('.studio-header') && !e.target.closest('.figma-bottom-dock')) {
+      if (!e.target.closest('.studio-header') && !e.target.closest('.bottom-dock-wrapper')) {
         this.focusInput();
       }
     });
 
-    this.buildPaletteDropdown();
-    this.setupDropdownTriggers();
-    this.setupMotionMenu();
+    this.buildPaletteRibbon();
+    this.setupSubRibbonTriggers();
     this.setupAspectControls();
     this.setupKeyEvents();
     this.setupMouseEvents();
@@ -123,29 +119,88 @@ class TypeLoomStudio {
     this.typeInput.focus();
   }
 
-  // --- Dynamic Palette UI ---
-  buildPaletteDropdown() {
-    this.paletteListEl.innerHTML = '';
+  // --- Sub-Ribbon Horizontal Row Management ---
+  buildPaletteRibbon() {
+    this.subRibbonPalettes.innerHTML = '';
     this.themeKeys.forEach((key) => {
       const t = LOOM_THEMES[key];
-      const row = document.createElement('div');
-      row.className = `palette-menu-row ${key === this.currentThemeKey ? 'active' : ''}`;
-      row.setAttribute('data-theme', key);
+      const btn = document.createElement('button');
+      btn.className = `ribbon-opt ${key === this.currentThemeKey ? 'active' : ''}`;
+      btn.setAttribute('data-theme', key);
 
-      const dotsHTML = t.previewDots.map(d => `<div class="p-row-dot" style="background:${d}"></div>`).join('');
+      const dotsHTML = t.previewDots.map(d => `<div class="r-dot" style="background:${d}"></div>`).join('');
 
-      row.innerHTML = `
-        <span class="p-row-name">${t.name}</span>
-        <div class="p-row-dots">${dotsHTML}</div>
+      btn.innerHTML = `
+        <div class="r-dots">${dotsHTML}</div>
+        <span class="r-title">${t.name}</span>
       `;
 
-      row.addEventListener('click', () => {
+      btn.addEventListener('click', () => {
         this.applyTheme(key);
-        this.paletteMenuTrigger.classList.remove('open');
       });
 
-      this.paletteListEl.appendChild(row);
+      this.subRibbonPalettes.appendChild(btn);
     });
+  }
+
+  setupSubRibbonTriggers() {
+    // 1. Palette Trigger
+    this.paletteMenuTrigger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (this.activeSubMenu === 'palettes') {
+        this.closeSubRibbon();
+      } else {
+        this.openSubRibbon('palettes');
+      }
+    });
+
+    // 2. Effects Trigger
+    this.motionMenuTrigger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (this.activeSubMenu === 'effects') {
+        this.closeSubRibbon();
+      } else {
+        this.openSubRibbon('effects');
+      }
+    });
+
+    // Effects Option Buttons inside sub-ribbon
+    const effectBtns = this.subRibbonEffects.querySelectorAll('.ribbon-opt');
+    effectBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        effectBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        this.currentEffect = btn.getAttribute('data-motion');
+        this.activeEffectNameEl.textContent = btn.querySelector('.r-title').textContent;
+        this.effectTime = 0;
+      });
+    });
+  }
+
+  openSubRibbon(menuType) {
+    this.activeSubMenu = menuType;
+    this.dockSubRibbon.classList.add('open');
+
+    if (menuType === 'palettes') {
+      this.paletteMenuTrigger.classList.add('active');
+      this.motionMenuTrigger.classList.remove('active');
+      this.subRibbonPalettes.classList.add('active');
+      this.subRibbonEffects.classList.remove('active');
+    } else if (menuType === 'effects') {
+      this.motionMenuTrigger.classList.add('active');
+      this.paletteMenuTrigger.classList.remove('active');
+      this.subRibbonEffects.classList.add('active');
+      this.subRibbonPalettes.classList.remove('active');
+    }
+  }
+
+  closeSubRibbon() {
+    this.activeSubMenu = null;
+    this.dockSubRibbon.classList.remove('open');
+    this.paletteMenuTrigger.classList.remove('active');
+    this.motionMenuTrigger.classList.remove('active');
+    this.subRibbonPalettes.classList.remove('active');
+    this.subRibbonEffects.classList.remove('active');
   }
 
   applyTheme(themeKey) {
@@ -160,11 +215,11 @@ class TypeLoomStudio {
       `<div class="preview-dot" style="background:${d}"></div>`
     ).join('');
 
-    // Update active row in popover
-    const rows = this.paletteListEl.querySelectorAll('.palette-menu-row');
-    rows.forEach(r => {
-      if (r.getAttribute('data-theme') === themeKey) r.classList.add('active');
-      else r.classList.remove('active');
+    // Update active state in sub-ribbon
+    const btns = this.subRibbonPalettes.querySelectorAll('.ribbon-opt');
+    btns.forEach(b => {
+      if (b.getAttribute('data-theme') === themeKey) b.classList.add('active');
+      else b.classList.remove('active');
     });
 
     // Re-tint threads
@@ -174,34 +229,6 @@ class TypeLoomStudio {
       } else {
         t.color = this.theme.bridgeColor;
       }
-    });
-  }
-
-  setupDropdownTriggers() {
-    this.paletteMenuTrigger.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.motionMenuTrigger.classList.remove('open');
-      this.paletteMenuTrigger.classList.toggle('open');
-    });
-
-    this.motionMenuTrigger.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.paletteMenuTrigger.classList.remove('open');
-      this.motionMenuTrigger.classList.toggle('open');
-    });
-  }
-
-  setupMotionMenu() {
-    const opts = this.motionPopover.querySelectorAll('.motion-opt');
-    opts.forEach(btn => {
-      btn.addEventListener('click', () => {
-        opts.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        this.currentEffect = btn.getAttribute('data-motion');
-        this.activeEffectNameEl.textContent = btn.querySelector('.m-title').textContent;
-        this.motionMenuTrigger.classList.remove('open');
-        this.effectTime = 0;
-      });
     });
   }
 
@@ -229,25 +256,18 @@ class TypeLoomStudio {
     });
 
     // Pin Toggle
-    this.pinStatusDot = document.getElementById('pin-status-dot');
     this.btnTogglePins.addEventListener('click', () => {
       this.showPins = !this.showPins;
-      if (this.pinStatusDot) {
-        if (this.showPins) this.pinStatusDot.classList.add('active');
-        else this.pinStatusDot.classList.remove('active');
-      }
+      if (this.showPins) this.pinStatusDot.classList.add('active');
+      else this.pinStatusDot.classList.remove('active');
       this.pinStatusText.textContent = this.showPins ? 'Pins: On' : 'Pins: Off';
     });
 
     // Sound Toggle
-    this.soundStatusDot = document.getElementById('sound-status-dot');
-    this.soundStatusText = document.getElementById('sound-status-text');
     this.btnToggleSound.addEventListener('click', () => {
       const isMuted = window.LoomAudio.toggleMute();
-      if (this.soundStatusDot) {
-        if (!isMuted) this.soundStatusDot.classList.add('active');
-        else this.soundStatusDot.classList.remove('active');
-      }
+      if (!isMuted) this.soundStatusDot.classList.add('active');
+      else this.soundStatusDot.classList.remove('active');
       this.soundStatusText.textContent = isMuted ? 'Audio: Off' : 'Audio: On';
     });
 
@@ -278,8 +298,7 @@ class TypeLoomStudio {
     setTimeout(() => this.toastEl.classList.remove('show'), 2200);
   }
 
-  // --- Keyboard Handling & Dynamic Centering ---
-
+  // --- Keyboard & Centering ---
   setupKeyEvents() {
     this.typeInput.addEventListener('keydown', (e) => {
       if (e.key === 'Backspace') {
@@ -332,11 +351,9 @@ class TypeLoomStudio {
     this.textString = '';
     this.characters = [];
     this.threads = [];
-    this.shuttles = [];
     this.emptyState.classList.remove('hidden');
   }
 
-  // Re-centers all characters and weaves threads dynamically in the exact middle of the screen
   rebuildAllCharacters() {
     if (this.textString.length === 0) {
       this.characters = [];
@@ -351,14 +368,10 @@ class TypeLoomStudio {
     const charHeight = this.fontSize;
     const spaceWidth = this.fontSize * 0.45;
 
-    // Calculate total layout width for centering
     let totalWidth = 0;
     for (let i = 0; i < this.textString.length; i++) {
-      if (this.textString[i] === ' ') {
-        totalWidth += spaceWidth;
-      } else {
-        totalWidth += charWidth + this.letterSpacing;
-      }
+      if (this.textString[i] === ' ') totalWidth += spaceWidth;
+      else totalWidth += charWidth + this.letterSpacing;
     }
     totalWidth -= this.letterSpacing;
 
@@ -547,8 +560,7 @@ class TypeLoomStudio {
     URL.revokeObjectURL(url);
   }
 
-  // --- 60 FPS Animation & Motion Simulation Loop ---
-
+  // --- 60 FPS Loop ---
   renderLoop(time) {
     this.effectTime += 0.016;
 
@@ -556,7 +568,7 @@ class TypeLoomStudio {
     this.ctx.fillStyle = this.theme.artboardBg;
     this.ctx.fillRect(0, 0, this.width, this.height);
 
-    // 2. Apply Kinetic Effects (5 Working Live Presets)
+    // 2. Apply Kinetic Effects
     this.applyKineticEffects(time);
 
     // 3. Update Physics
@@ -583,7 +595,6 @@ class TypeLoomStudio {
 
   applyKineticEffects(time) {
     if (this.currentEffect === 'breathe') {
-      // 1. Breathe: Continuous organic harmonic sway
       const sway = Math.sin(time * 0.002) * 1.8;
       this.threads.forEach(t => {
         t.nodes.forEach((n, idx) => {
@@ -594,7 +605,6 @@ class TypeLoomStudio {
         });
       });
     } else if (this.currentEffect === 'gust') {
-      // 2. Gust: Wind sweeps through with physics breeze
       const gustCycle = (time * 0.001) % 4;
       if (gustCycle < 1.6) {
         const gustForce = Math.sin((gustCycle / 1.6) * Math.PI) * 3.2;
@@ -605,7 +615,6 @@ class TypeLoomStudio {
         });
       }
     } else if (this.currentEffect === 'reach') {
-      // 3. Magnetic Reach: Strings dynamically pull towards mouse/light orb
       const targetX = this.mouseCurr.x || this.width * 0.5;
       const targetY = this.mouseCurr.y || this.height * 0.5;
 
@@ -624,18 +633,15 @@ class TypeLoomStudio {
         });
       });
     } else if (this.currentEffect === 'resonate') {
-      // 4. Resonate: Acoustic string vibration harmonics
       if (Math.random() < 0.045 && this.threads.length > 0) {
         const randomThread = this.threads[Math.floor(Math.random() * this.threads.length)];
         randomThread.pluck(15);
       }
     } else if (this.currentEffect === 'visitor') {
-      // 5. Visitor: Luminous needle swoops in infinity loop
       this.visitor.angle += 0.03;
       this.visitor.x = this.width * 0.5 + Math.sin(this.visitor.angle) * (this.width * 0.35);
       this.visitor.y = this.height * 0.5 + Math.sin(this.visitor.angle * 2) * 90;
 
-      // Draw Luminous Needle Visitor
       this.ctx.save();
       this.ctx.fillStyle = '#1ABCFE';
       this.ctx.shadowColor = '#F24E1E';

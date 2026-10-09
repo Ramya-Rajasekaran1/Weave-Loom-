@@ -64,119 +64,105 @@
     <!-- Toast Notification -->
     <div id="toast" class="toast-notification" role="status" aria-live="polite">Link copied!</div>
 
-    <!-- Bottom Left Keybinding Microcopy -->
-    <div class="keyboard-hints" aria-hidden="true">
-      <span><kbd>Type</kbd> to weave</span>
-      <span><kbd>Space</kbd> cuts yarn</span>
-      <span><kbd>⌫</kbd> unravels</span>
-      <span><kbd>Enter</kbd> clears</span>
-      <span><kbd>Drag</kbd> plucks strings</span>
+    <!-- Bottom Left Keybinding Microcopy (Non-obstructing, positioned cleanly) -->
+    <div class="keyboard-hints" id="keyboard-hints" aria-hidden="true">
+      <span class="hint-item"><kbd>Type</kbd> weave</span>
+      <span class="hint-item"><kbd>Space</kbd> cut</span>
+      <span class="hint-item"><kbd>⌫</kbd> unravel</span>
+      <span class="hint-item"><kbd>Enter</kbd> clear</span>
+      <span class="hint-item"><kbd>Drag</kbd> pluck</span>
     </div>
 
-    <!-- Figma-Inspired Bottom Centered Glass Action Toolbar -->
-    <nav class="figma-bottom-dock" aria-label="Loom Controls">
-      <!-- 1. Color Palette Selector -->
-      <div class="dock-item dropdown-trigger" id="palette-menu-trigger">
-        <div class="dock-label">Palette</div>
-        <div class="palette-indicator" id="current-palette-preview">
-          <div class="preview-dot dot-1"></div>
-          <div class="preview-dot dot-2"></div>
-          <div class="preview-dot dot-3"></div>
+    <!-- Bottom Floating Dock Container (Includes Sub-Ribbon Line Above Main Dock) -->
+    <div class="bottom-dock-wrapper" id="bottom-dock-wrapper">
+      
+      <!-- Horizontal Sub-Ribbon Row (Appears on one line just above the dock on click) -->
+      <div class="dock-sub-ribbon" id="dock-sub-ribbon">
+        <!-- Palette Sub-Bar Row -->
+        <div class="sub-ribbon-content" id="sub-ribbon-palettes">
+          <!-- Dynamically populated from themes.js -->
         </div>
-        <span class="chevron">▾</span>
 
-        <!-- Palette Dropdown Popover -->
-        <div class="dock-popover palette-popover" id="palette-popover">
-          <div class="popover-title">Color Palettes</div>
-          <div class="palette-list" id="palette-list">
-            <!-- Dynamically populated from themes.js -->
+        <!-- Motion Effects Sub-Bar Row -->
+        <div class="sub-ribbon-content" id="sub-ribbon-effects">
+          <button class="ribbon-opt active" data-motion="breathe">
+            <span class="r-badge">01</span>
+            <span class="r-title">Breathe</span>
+          </button>
+          <button class="ribbon-opt" data-motion="gust">
+            <span class="r-badge">02</span>
+            <span class="r-title">Wind Gust</span>
+          </button>
+          <button class="ribbon-opt" data-motion="reach">
+            <span class="r-badge">03</span>
+            <span class="r-title">Magnetic Reach</span>
+          </button>
+          <button class="ribbon-opt" data-motion="resonate">
+            <span class="r-badge">04</span>
+            <span class="r-title">Resonate</span>
+          </button>
+          <button class="ribbon-opt" data-motion="visitor">
+            <span class="r-badge">05</span>
+            <span class="r-title">Luminous Needle</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Main Figma-Inspired Bottom Centered Glass Toolbar -->
+      <nav class="figma-bottom-dock" aria-label="Loom Controls">
+        <!-- 1. Color Palette Selector Trigger -->
+        <button class="dock-item" id="palette-menu-trigger" title="Choose Color Palette">
+          <span class="dock-label">Palette</span>
+          <div class="palette-indicator" id="current-palette-preview">
+            <div class="preview-dot dot-1"></div>
+            <div class="preview-dot dot-2"></div>
+            <div class="preview-dot dot-3"></div>
           </div>
+          <span class="chevron" id="palette-chevron">▾</span>
+        </button>
+
+        <div class="dock-divider"></div>
+
+        <!-- 2. Effects & Motion Switcher Trigger -->
+        <button class="dock-item" id="motion-menu-trigger" title="Choose Kinetic Effect">
+          <span class="dock-label">Effect</span>
+          <span class="active-effect-name" id="active-effect-name">Breathe</span>
+          <span class="chevron" id="motion-chevron">▾</span>
+        </button>
+
+        <div class="dock-divider"></div>
+
+        <!-- 3. Thread Stroke Thickness Slider -->
+        <div class="dock-item stroke-control" title="Adjust Thread Thickness">
+          <span class="dock-label">Stroke</span>
+          <input type="range" id="slider-stroke" min="1" max="6" step="0.5" value="2.5" aria-label="Stroke Thickness" />
+          <span id="val-stroke" class="dock-val">2.5px</span>
         </div>
-      </div>
 
-      <div class="dock-divider"></div>
+        <div class="dock-divider"></div>
 
-      <!-- 2. Effects & Motion Switcher (5 Working Effects) -->
-      <div class="dock-item dropdown-trigger" id="motion-menu-trigger">
-        <div class="dock-label">Effect</div>
-        <span class="active-effect-name" id="active-effect-name">Breathe</span>
-        <span class="chevron">▾</span>
+        <!-- 4. Pin / Bubble Toggle Button -->
+        <button id="btn-toggle-pins" class="dock-btn" title="Toggle Pin Pegs" aria-label="Toggle Pins">
+          <span class="status-dot active" id="pin-status-dot"></span>
+          <span id="pin-status-text">Pins: On</span>
+        </button>
 
-        <!-- Effects Popover -->
-        <div class="dock-popover motion-popover" id="motion-popover">
-          <div class="popover-title">Kinetic Effects</div>
-          <div class="motion-list">
-            <button class="motion-opt active" data-motion="breathe">
-              <span class="motion-badge">01</span>
-              <div class="motion-info">
-                <span class="m-title">Breathe</span>
-                <span class="m-desc">Organic harmonic wave · 3s</span>
-              </div>
-            </button>
-            <button class="motion-opt" data-motion="gust">
-              <span class="motion-badge">02</span>
-              <div class="motion-info">
-                <span class="m-title">Wind Gust</span>
-                <span class="m-desc">Dynamic physics breeze · 4s</span>
-              </div>
-            </button>
-            <button class="motion-opt" data-motion="reach">
-              <span class="motion-badge">03</span>
-              <div class="motion-info">
-                <span class="m-title">Magnetic Reach</span>
-                <span class="m-desc">Strings follow cursor light · 5s</span>
-              </div>
-            </button>
-            <button class="motion-opt" data-motion="resonate">
-              <span class="motion-badge">04</span>
-              <div class="motion-info">
-                <span class="m-title">Resonate</span>
-                <span class="m-desc">Acoustic string twangs · 4s</span>
-              </div>
-            </button>
-            <button class="motion-opt" data-motion="visitor">
-              <span class="motion-badge">05</span>
-              <div class="motion-info">
-                <span class="m-title">Luminous Needle</span>
-                <span class="m-desc">Flying visitor loops · 6s</span>
-              </div>
-            </button>
-          </div>
-        </div>
-      </div>
+        <div class="dock-divider"></div>
 
-      <div class="dock-divider"></div>
+        <!-- 5. Sound Synthesizer Toggle Button -->
+        <button id="btn-toggle-sound" class="dock-btn" title="Toggle Acoustic Sound" aria-label="Toggle Sound">
+          <span class="status-dot active" id="sound-status-dot"></span>
+          <span id="sound-status-text">Audio: On</span>
+        </button>
 
-      <!-- 3. Thread Stroke Thickness Slider -->
-      <div class="dock-item stroke-control" title="Thread Thickness">
-        <div class="dock-label">Stroke</div>
-        <input type="range" id="slider-stroke" min="1" max="6" step="0.5" value="2.5" aria-label="Stroke Thickness" />
-        <span id="val-stroke" class="dock-val">2.5px</span>
-      </div>
+        <div class="dock-divider"></div>
 
-      <div class="dock-divider"></div>
-
-      <!-- 4. Pin / Bubble Toggle Button -->
-      <button id="btn-toggle-pins" class="dock-btn" title="Toggle Pin Pegs" aria-label="Toggle Pins">
-        <span class="status-dot active" id="pin-status-dot"></span>
-        <span id="pin-status-text">Pins: On</span>
-      </button>
-
-      <div class="dock-divider"></div>
-
-      <!-- 5. Sound Synthesizer Toggle Button -->
-      <button id="btn-toggle-sound" class="dock-btn" title="Toggle Acoustic Sound" aria-label="Toggle Sound">
-        <span class="status-dot active" id="sound-status-dot"></span>
-        <span id="sound-status-text">Audio: On</span>
-      </button>
-
-      <div class="dock-divider"></div>
-
-      <!-- 6. Clear Canvas Action -->
-      <button id="btn-clear-canvas" class="dock-btn clear" title="Clear Canvas (Enter / Esc)" aria-label="Clear Canvas">
-        <span>Clear</span>
-      </button>
-    </nav>
+        <!-- 6. Clear Canvas Action -->
+        <button id="btn-clear-canvas" class="dock-btn clear" title="Clear Canvas (Enter / Esc)" aria-label="Clear Canvas">
+          <span>Clear</span>
+        </button>
+      </nav>
+    </div>
   </div>
 
   <script src="audio.js"></script>
