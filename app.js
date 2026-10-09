@@ -807,6 +807,23 @@ class TypeLoomStudio {
     // 2. Draw Ambient Floating Silk Motes
     this.drawSilkMotes();
 
+    // 2b. Luminous Cursor Proximity Aura (Evident visual field on hover)
+    if (this.mouseCurr.x > 0 && this.mouseCurr.y > 0) {
+      this.ctx.save();
+      const aura = this.ctx.createRadialGradient(
+        this.mouseCurr.x, this.mouseCurr.y, 2,
+        this.mouseCurr.x, this.mouseCurr.y, 85
+      );
+      aura.addColorStop(0, 'rgba(255, 255, 255, 0.15)');
+      aura.addColorStop(0.4, 'rgba(26, 188, 254, 0.08)');
+      aura.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      this.ctx.fillStyle = aura;
+      this.ctx.beginPath();
+      this.ctx.arc(this.mouseCurr.x, this.mouseCurr.y, 85, 0, Math.PI * 2);
+      this.ctx.fill();
+      this.ctx.restore();
+    }
+
     // 3. Dynamic Magnetic Repulsion & Harmonic Wobble Dispersion
     for (const char of this.characters) {
       for (const pin of char.pins) {
@@ -859,14 +876,14 @@ class TypeLoomStudio {
       }
     }
 
-    // 6. Draw Threads
+    // 6. Draw Threads (Passing mouse coordinates for active hover illumination)
     for (const thread of this.threads) {
-      thread.draw(this.ctx, time, this.theme);
+      thread.draw(this.ctx, time, this.theme, this.mouseCurr);
     }
 
-    // 7. Draw Pins (On/Off Toggle)
+    // 7. Draw Pins (On/Off Toggle with dynamic hover grab cue)
     if (this.showPins) {
-      this.drawPins();
+      this.drawPins(time);
     }
 
     requestAnimationFrame((t) => this.renderLoop(t));
@@ -1032,36 +1049,77 @@ class TypeLoomStudio {
     }
   }
 
-  // Anchor Pins Renderer (Tactile Glass Pearl anchors with specular glint)
-  drawPins() {
+  // Anchor Pins Renderer (Tactile Glass Pearl anchors with dynamic hover & drag cues)
+  drawPins(time = 0) {
     if (!this.showPins) return;
     this.ctx.save();
 
     for (const char of this.characters) {
       for (const pin of char.pins) {
         const isDragged = pin.isDragging;
+        const distToMouse = Math.hypot(pin.x - this.mouseCurr.x, pin.y - this.mouseCurr.y);
+        const isHovered = distToMouse < 24 && !isDragged;
 
+        // Visual Cue 1: Ghost Socket & Elastic Dashed Tension Tether during Drag
+        if (isDragged) {
+          this.ctx.save();
+          // Ghost socket at original anchor
+          this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+          this.ctx.lineWidth = 1;
+          this.ctx.setLineDash([2, 3]);
+          this.ctx.beginPath();
+          this.ctx.arc(pin.origX, pin.origY, 5.5, 0, Math.PI * 2);
+          this.ctx.stroke();
+
+          // Elastic tether vector
+          this.ctx.strokeStyle = 'rgba(26, 188, 254, 0.65)';
+          this.ctx.lineWidth = 1.2;
+          this.ctx.shadowColor = '#00F0FF';
+          this.ctx.shadowBlur = 8;
+          this.ctx.beginPath();
+          this.ctx.moveTo(pin.origX, pin.origY);
+          this.ctx.lineTo(pin.x, pin.y);
+          this.ctx.stroke();
+          this.ctx.restore();
+        }
+
+        // Visual Cue 2: Grab Reticle Pulsing Ring on Hover
+        if (isHovered) {
+          this.ctx.save();
+          const pulseR = 8.5 + Math.sin(time * 0.01) * 1.5;
+          this.ctx.strokeStyle = '#FFFFFF';
+          this.ctx.shadowColor = '#1ABCFE';
+          this.ctx.shadowBlur = 12;
+          this.ctx.lineWidth = 1.2;
+          this.ctx.setLineDash([3, 3]);
+          this.ctx.beginPath();
+          this.ctx.arc(pin.x, pin.y, pulseR, 0, Math.PI * 2);
+          this.ctx.stroke();
+          this.ctx.restore();
+        }
+
+        // Pin Glass Pearl Node
         this.ctx.save();
-        this.ctx.shadowColor = 'rgba(0,0,0,0.5)';
-        this.ctx.shadowBlur = isDragged ? 12 : 4;
-        this.ctx.shadowOffsetY = isDragged ? 4 : 1.5;
+        this.ctx.shadowColor = isHovered ? '#1ABCFE' : 'rgba(0,0,0,0.5)';
+        this.ctx.shadowBlur = isDragged ? 14 : (isHovered ? 12 : 4);
+        this.ctx.shadowOffsetY = isDragged ? 4 : (isHovered ? 0 : 1.5);
 
-        const rad = isDragged ? 6.0 : 4.2;
+        const rad = isDragged ? 6.5 : (isHovered ? 5.4 : 4.2);
         const grad = this.ctx.createRadialGradient(
           pin.x - rad * 0.35, pin.y - rad * 0.35, rad * 0.1,
           pin.x, pin.y, rad
         );
         grad.addColorStop(0, '#FFFFFF');
-        grad.addColorStop(0.45, '#E0E7FF');
-        grad.addColorStop(1, '#818CF8');
+        grad.addColorStop(0.45, isHovered ? '#BAE6FD' : '#E0E7FF');
+        grad.addColorStop(1, isHovered ? '#0284C7' : '#818CF8');
 
         this.ctx.fillStyle = grad;
         this.ctx.beginPath();
         this.ctx.arc(pin.x, pin.y, rad, 0, Math.PI * 2);
         this.ctx.fill();
 
-        this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-        this.ctx.lineWidth = 0.8;
+        this.ctx.strokeStyle = isHovered ? '#FFFFFF' : 'rgba(255, 255, 255, 0.8)';
+        this.ctx.lineWidth = isHovered ? 1.2 : 0.8;
         this.ctx.stroke();
 
         // Top specular glint

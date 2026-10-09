@@ -164,11 +164,24 @@ class LoomThread {
     return false;
   }
 
-  draw(ctx, time, theme) {
+  draw(ctx, time, theme, mouse = null) {
     if (this.nodes.length < 2 || this.unravelProgress >= 1) return;
 
     const visibleCount = Math.max(2, Math.floor(this.nodes.length * this.growth));
     const vibOffset = this.vibration * Math.sin(time * 0.05 * this.vibrationFreq);
+
+    // Calculate hover proximity to mouse
+    let isHovered = false;
+    let hoverProximity = 0; // 0 to 1
+    if (mouse && mouse.x > 0 && mouse.y > 0) {
+      for (let i = 0; i < visibleCount; i++) {
+        const d = Math.hypot(this.nodes[i].x - mouse.x, this.nodes[i].y - mouse.y);
+        if (d < 70) {
+          isHovered = true;
+          hoverProximity = Math.max(hoverProximity, (70 - d) / 70);
+        }
+      }
+    }
 
     ctx.save();
     ctx.lineCap = 'round';
@@ -198,13 +211,13 @@ class LoomThread {
       ctx.restore();
     }
 
-    // Layer 2: Main Vibrant Silk Thread
+    // Layer 2: Main Vibrant Silk Thread (Brightens on hover)
     ctx.strokeStyle = this.color;
-    ctx.lineWidth = this.thickness;
+    ctx.lineWidth = this.thickness + (isHovered ? hoverProximity * 1.2 : 0);
 
-    if (theme.glow) {
-      ctx.shadowColor = this.color;
-      ctx.shadowBlur = 14;
+    if (theme.glow || isHovered) {
+      ctx.shadowColor = isHovered ? '#FFFFFF' : this.color;
+      ctx.shadowBlur = isHovered ? (14 + hoverProximity * 16) : 14;
     }
 
     if (!this.isCut) {
@@ -221,10 +234,12 @@ class LoomThread {
       ctx.lineTo(this.nodes[visibleCount - 1].x, this.nodes[visibleCount - 1].y);
       ctx.stroke();
 
-      // Layer 3: Tactile Core Specular Sheen (gives cylindrical string realism)
-      if (this.thickness >= 2.0) {
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
-        ctx.lineWidth = Math.max(0.75, this.thickness * 0.3);
+      // Layer 3: Tactile Core Specular Sheen (Glows radiant white on hover)
+      if (this.thickness >= 1.5 || isHovered) {
+        ctx.strokeStyle = isHovered 
+          ? `rgba(255, 255, 255, ${0.4 + hoverProximity * 0.55})` 
+          : 'rgba(255, 255, 255, 0.35)';
+        ctx.lineWidth = Math.max(0.8, this.thickness * (isHovered ? 0.45 : 0.3));
         ctx.stroke();
       }
     } else {
