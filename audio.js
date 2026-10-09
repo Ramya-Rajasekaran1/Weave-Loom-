@@ -1,165 +1,176 @@
 /**
- * Type Loom — Bulletproof Web Audio Synthesizer by Ramya
- * Generates rich acoustic plucked string harmonics, scissor snips, and unspooling chimes.
+ * Type Loom — Audio Synthesizer by Ramya
+ * Generates crisp acoustic plucked harp/string notes, scissor cuts, and unspooling chimes.
  */
 
 class LoomAudio {
   constructor() {
     this.ctx = null;
     this.isMuted = false;
-    // Pentatonic scale frequencies for harmonic plucks (C Major / A Minor Pentatonic)
-    this.scale = [220, 261.63, 293.66, 329.63, 392.00, 440, 523.25, 587.33, 659.25, 783.99, 880, 1046.50];
+    // Clear, audible pentatonic harp scale (Middle C5 to C6 octave for crystal-clear laptop speaker playback)
+    this.scale = [392.00, 440.00, 523.25, 587.33, 659.25, 783.99, 880.00, 987.77, 1046.50, 1174.66, 1318.51];
     this.scaleIndex = 0;
 
-    // Attach immediate unlock listeners
-    this.setupAutoUnlock();
+    // Immediately listen to any user gesture to unlock audio
+    this.initOnGesture();
   }
 
-  setupAutoUnlock() {
+  initOnGesture() {
     const unlock = () => {
-      this.ensureAudioContext();
+      this.getAudioContext();
     };
     ['pointerdown', 'mousedown', 'keydown', 'touchstart', 'click'].forEach(evt => {
       window.addEventListener(evt, unlock, { capture: true, passive: true });
     });
   }
 
-  ensureAudioContext() {
+  getAudioContext() {
     try {
       if (!this.ctx) {
-        const AudioCtx = window.AudioContext || window.webkitAudioContext;
-        if (AudioCtx) {
-          this.ctx = new AudioCtx();
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioContextClass) {
+          this.ctx = new AudioContextClass();
         }
       }
       if (this.ctx && this.ctx.state === 'suspended') {
         this.ctx.resume();
       }
-    } catch (e) {
-      console.warn('AudioContext init error:', e);
+    } catch (err) {
+      console.warn('AudioContext initialization note:', err);
     }
+    return this.ctx;
   }
 
   toggleMute() {
-    this.ensureAudioContext();
+    const ctx = this.getAudioContext();
     this.isMuted = !this.isMuted;
     if (!this.isMuted) {
-      // Play instant pleasant confirmation chime
+      // Play instant pleasant harp chime
       this.playPluck(523.25, 0.8);
     }
     return this.isMuted;
   }
 
-  // Plays a rich acoustic plucked string harmonic
+  // Plays a rich acoustic plucked string note
   playPluck(frequency = null, intensity = 0.7) {
     if (this.isMuted) return;
-    this.ensureAudioContext();
-    if (!this.ctx) return;
+    const ctx = this.getAudioContext();
+    if (!ctx) return;
 
     try {
-      const t = this.ctx.currentTime;
+      const now = ctx.currentTime;
       let freq = frequency;
       if (!freq) {
         freq = this.scale[this.scaleIndex % this.scale.length];
         this.scaleIndex++;
       }
 
-      // Dual oscillators for string body and shimmer
-      const osc1 = this.ctx.createOscillator();
-      const osc2 = this.ctx.createOscillator();
-      const gainNode = this.ctx.createGain();
-      const filter = this.ctx.createBiquadFilter();
+      // 1. Primary string oscillator (Triangle wave for acoustic warmth)
+      const osc = ctx.createOscillator();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, now);
 
-      // Triangle for warm acoustic string, Sine for harmonic overtone
-      osc1.type = 'triangle';
-      osc1.frequency.setValueAtTime(freq, t);
+      // 2. Secondary overtone oscillator (Sine wave for shimmering harmonic resonance)
+      const overtone = ctx.createOscillator();
+      overtone.type = 'sine';
+      overtone.frequency.setValueAtTime(freq * 2, now);
 
-      osc2.type = 'sine';
-      osc2.frequency.setValueAtTime(freq * 2.01, t);
-
-      // Lowpass acoustic resonance filter
+      // 3. Acoustic Lowpass Filter (gives body and natural dampening)
+      const filter = ctx.createBiquadFilter();
       filter.type = 'lowpass';
-      filter.frequency.setValueAtTime(Math.min(freq * 4.5, 4500), t);
-      filter.frequency.exponentialRampToValueAtTime(150, t + 0.8);
+      filter.frequency.setValueAtTime(Math.min(freq * 4, 3800), now);
+      filter.frequency.exponentialRampToValueAtTime(320, now + 0.65);
 
-      // Amplitude envelope
-      const vol = Math.min(Math.max(intensity, 0.3), 1.0) * 0.55;
-      gainNode.gain.setValueAtTime(0.0001, t);
-      gainNode.gain.linearRampToValueAtTime(vol, t + 0.006);
-      gainNode.gain.exponentialRampToValueAtTime(0.0001, t + 1.2);
+      // 4. Volume Gain Envelope
+      const gain = ctx.createGain();
+      const overtoneGain = ctx.createGain();
 
-      osc1.connect(filter);
-      osc2.connect(filter);
-      filter.connect(gainNode);
-      gainNode.connect(this.ctx.destination);
+      const mainVol = Math.min(Math.max(intensity, 0.3), 1.0) * 0.45;
+      const overVol = mainVol * 0.35;
 
-      osc1.start(t);
-      osc2.start(t);
-      osc1.stop(t + 1.25);
-      osc2.stop(t + 1.25);
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.linearRampToValueAtTime(mainVol, now + 0.008);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.75);
+
+      overtoneGain.gain.setValueAtTime(0.001, now);
+      overtoneGain.gain.linearRampToValueAtTime(overVol, now + 0.008);
+      overtoneGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.55);
+
+      // Connect graph: osc -> gain -> filter -> destination
+      osc.connect(gain);
+      overtone.connect(overtoneGain);
+      gain.connect(filter);
+      overtoneGain.connect(filter);
+      filter.connect(ctx.destination);
+
+      // Trigger oscillators
+      osc.start(now);
+      overtone.start(now);
+      osc.stop(now + 0.8);
+      overtone.stop(now + 0.6);
     } catch (e) {
       console.warn('playPluck error:', e);
     }
   }
 
-  // Scissor snip sound on spacebar
+  // Scissor snip sound on Spacebar
   playSnip() {
     if (this.isMuted) return;
-    this.ensureAudioContext();
-    if (!this.ctx) return;
+    const ctx = this.getAudioContext();
+    if (!ctx) return;
 
     try {
-      const t = this.ctx.currentTime;
-      const bufferSize = Math.floor(this.ctx.sampleRate * 0.08);
-      const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+      const now = ctx.currentTime;
+      const bufferSize = Math.floor(ctx.sampleRate * 0.06);
+      const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
       const output = noiseBuffer.getChannelData(0);
       for (let i = 0; i < bufferSize; i++) {
         output[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
       }
 
-      const noise = this.ctx.createBufferSource();
+      const noise = ctx.createBufferSource();
       noise.buffer = noiseBuffer;
 
-      const filter = this.ctx.createBiquadFilter();
+      const filter = ctx.createBiquadFilter();
       filter.type = 'bandpass';
-      filter.frequency.setValueAtTime(2800, t);
-      filter.Q.setValueAtTime(3.5, t);
+      filter.frequency.setValueAtTime(3200, now);
+      filter.Q.setValueAtTime(2.5, now);
 
-      const gain = this.ctx.createGain();
-      gain.gain.setValueAtTime(0.4, t);
-      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.075);
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.4, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
 
       noise.connect(filter);
       filter.connect(gain);
-      gain.connect(this.ctx.destination);
+      gain.connect(ctx.destination);
 
-      noise.start(t);
+      noise.start(now);
     } catch (e) {}
   }
 
-  // Unravel chime on backspace
+  // Unravel sound on Backspace
   playUnravel() {
     if (this.isMuted) return;
-    this.ensureAudioContext();
-    if (!this.ctx) return;
+    const ctx = this.getAudioContext();
+    if (!ctx) return;
 
     try {
-      const t = this.ctx.currentTime;
-      const osc = this.ctx.createOscillator();
-      const gain = this.ctx.createGain();
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
 
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(680, t);
-      osc.frequency.exponentialRampToValueAtTime(260, t + 0.25);
+      osc.frequency.setValueAtTime(740, now);
+      osc.frequency.exponentialRampToValueAtTime(300, now + 0.2);
 
-      gain.gain.setValueAtTime(0.3, t);
-      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+      gain.gain.setValueAtTime(0.28, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
 
       osc.connect(gain);
-      gain.connect(this.ctx.destination);
+      gain.connect(ctx.destination);
 
-      osc.start(t);
-      osc.stop(t + 0.26);
+      osc.start(now);
+      osc.stop(now + 0.21);
     } catch (e) {}
   }
 }
