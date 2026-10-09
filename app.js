@@ -1,6 +1,6 @@
 /**
  * Type Loom — Studio Edition by Ramya
- * Generative Tactile Typography Engine with Multi-Line Word Wrapping & Dynamic Centering.
+ * Generative Tactile Typography Engine with Multi-Line Wrapping, Mixed Case & Smooth Canvas Transitions.
  */
 
 class TypeLoomStudio {
@@ -36,10 +36,10 @@ class TypeLoomStudio {
     this.currentThemeKey = 'figma'; // Default to Figma Brand Spectrum
     this.theme = LOOM_THEMES[this.currentThemeKey];
 
-    // Sub-Ribbon Active State: null | 'palettes' | 'effects'
+    // Sub-Ribbon Active State
     this.activeSubMenu = null;
 
-    // Effect State: 'breathe' | 'gust' | 'reach' | 'resonate' | 'visitor'
+    // Effect State: 'breathe' | 'gust' | 'zerog' | 'shimmer' | 'visitor'
     this.currentEffect = 'breathe';
     this.effectTime = 0;
 
@@ -49,12 +49,11 @@ class TypeLoomStudio {
     this.tension = 0.85;
     this.gravity = 0.22;
 
-    // Typography State (Starts Blank)
+    // Typography State
     this.textString = '';
     this.characters = [];
     this.threads = [];
-    this.baseFontSize = 104;
-    this.letterSpacing = 20;
+    this.baseFontSize = 96;
 
     // Mouse Tracking
     this.mousePrev = { x: 0, y: 0 };
@@ -68,7 +67,16 @@ class TypeLoomStudio {
 
   init() {
     this.resize();
-    window.addEventListener('resize', () => this.resize());
+
+    // Smooth continuous resize handling via ResizeObserver
+    if (window.ResizeObserver) {
+      this.resizeObserver = new ResizeObserver(() => {
+        this.resize();
+      });
+      this.resizeObserver.observe(this.artboardContainer);
+    } else {
+      window.addEventListener('resize', () => this.resize());
+    }
 
     // Auto-focus input on canvas click & handle outside clicks for ribbon
     window.addEventListener('click', (e) => {
@@ -97,19 +105,17 @@ class TypeLoomStudio {
 
   resize() {
     const dpr = window.devicePixelRatio || 1;
-    this.width = this.artboardContainer.clientWidth;
-    this.height = this.artboardContainer.clientHeight;
+    this.width = this.artboardContainer.clientWidth || 800;
+    this.height = this.artboardContainer.clientHeight || 600;
 
     this.canvas.width = this.width * dpr;
     this.canvas.height = this.height * dpr;
     this.ctx.scale(dpr, dpr);
 
     if (this.width < 600) {
-      this.baseFontSize = 64;
-      this.letterSpacing = 12;
+      this.baseFontSize = 60;
     } else {
-      this.baseFontSize = 104;
-      this.letterSpacing = 20;
+      this.baseFontSize = 96;
     }
 
     this.rebuildAllCharacters();
@@ -240,7 +246,6 @@ class TypeLoomStudio {
         btn.classList.add('active');
         const aspect = btn.getAttribute('data-aspect');
         this.artboardContainer.className = `artboard-container frame-${aspect}`;
-        setTimeout(() => this.resize(), 420);
       });
     });
   }
@@ -306,7 +311,7 @@ class TypeLoomStudio {
         this.handleBackspace();
       } else if (e.key === 'Enter') {
         e.preventDefault();
-        this.clearCanvas();
+        this.handleEnter();
       } else if (e.key === ' ') {
         e.preventDefault();
         this.handleSpace();
@@ -323,6 +328,8 @@ class TypeLoomStudio {
           const char = val[i];
           if (char === ' ') {
             this.handleSpace();
+          } else if (char === '\n') {
+            this.handleEnter();
           } else {
             this.textString += char;
             this.rebuildAllCharacters();
@@ -332,6 +339,12 @@ class TypeLoomStudio {
         this.typeInput.value = '';
       }
     });
+  }
+
+  handleEnter() {
+    this.textString += '\n';
+    this.rebuildAllCharacters();
+    window.LoomAudio.playPluck(329.63, 0.7);
   }
 
   handleSpace() {
@@ -354,7 +367,7 @@ class TypeLoomStudio {
     this.emptyState.classList.remove('hidden');
   }
 
-  // Multi-line word wrapping with dynamic centering and generous padding
+  // Responsive Multi-Line Wrapping & Dynamic Centering
   rebuildAllCharacters() {
     if (this.textString.length === 0) {
       this.characters = [];
@@ -366,51 +379,89 @@ class TypeLoomStudio {
     this.emptyState.classList.add('hidden');
 
     // Safe Canvas Margins / Padding
-    const padX = Math.max(40, this.width * 0.07);
-    const padY = Math.max(50, this.height * 0.10);
-    const maxAvailableWidth = this.width - padX * 2;
-    const maxAvailableHeight = this.height - padY * 2;
+    const padX = Math.max(36, this.width * 0.08);
+    const padY = Math.max(48, this.height * 0.12);
+    const maxAvailableWidth = Math.max(120, this.width - padX * 2);
 
-    // Adapt font size dynamically based on length so it fits comfortably
+    // Adaptive font scaling
     let fontSize = this.baseFontSize;
-    if (this.textString.length > 18) {
-      fontSize = Math.max(48, this.baseFontSize * 0.75);
-    } else if (this.textString.length > 10) {
-      fontSize = Math.max(58, this.baseFontSize * 0.88);
+    if (this.textString.length > 24) {
+      fontSize = Math.max(42, this.baseFontSize * 0.65);
+    } else if (this.textString.length > 14) {
+      fontSize = Math.max(52, this.baseFontSize * 0.8);
     }
 
-    const charWidth = fontSize * 0.72;
+    const charWidth = fontSize * 0.68;
     const charHeight = fontSize;
-    const letterSpacing = Math.max(10, fontSize * 0.2);
-    const spaceWidth = fontSize * 0.45;
-    const lineHeight = fontSize * 1.35; // Generous vertical breathing room for dangling threads
+    const letterSpacing = Math.max(8, fontSize * 0.16);
+    const spaceWidth = fontSize * 0.42;
+    const lineHeight = fontSize * 1.32;
 
-    // 1. Split text into words and calculate multi-line wrapping
-    const words = this.textString.split(' ');
+    // Helper: calculate width of any string segment
+    const getSegmentWidth = (seg) => {
+      if (!seg || seg.length === 0) return 0;
+      return seg.length * charWidth + (seg.length - 1) * letterSpacing;
+    };
+
+    // 1. Break text into lines supporting both explicit newlines (\n) and auto-wrapping
+    const paragraphs = this.textString.split('\n');
     const lines = []; // array of { words: [], width: 0 }
-    let currentLine = { words: [], width: 0 };
 
-    for (let w = 0; w < words.length; w++) {
-      const word = words[w];
-      const wordWidth = word.length > 0 ? (word.length * charWidth + (word.length - 1) * letterSpacing) : 0;
-
-      // Check if word fits on current line
-      const testWidth = currentLine.words.length === 0 
-        ? wordWidth 
-        : currentLine.width + spaceWidth + wordWidth;
-
-      if (testWidth <= maxAvailableWidth || currentLine.words.length === 0) {
-        // Fits on current line
-        currentLine.words.push(word);
-        currentLine.width = testWidth;
-      } else {
-        // Wrap to next line
-        lines.push(currentLine);
-        currentLine = { words: [word], width: wordWidth };
+    for (let p = 0; p < paragraphs.length; p++) {
+      const para = paragraphs[p];
+      if (para.length === 0) {
+        lines.push({ words: [''], width: 0 });
+        continue;
       }
-    }
-    if (currentLine.words.length > 0) {
-      lines.push(currentLine);
+
+      const words = para.split(' ');
+      let curLineWords = [];
+      let curLineWidth = 0;
+
+      for (let w = 0; w < words.length; w++) {
+        const word = words[w];
+        const wWidth = getSegmentWidth(word);
+
+        // If a single word itself is wider than maxAvailableWidth, split it into chunks
+        if (wWidth > maxAvailableWidth && word.length > 1) {
+          if (curLineWords.length > 0) {
+            lines.push({ words: curLineWords, width: curLineWidth });
+            curLineWords = [];
+            curLineWidth = 0;
+          }
+
+          let chunk = '';
+          for (let i = 0; i < word.length; i++) {
+            const testChunk = chunk + word[i];
+            if (getSegmentWidth(testChunk) > maxAvailableWidth && chunk.length > 0) {
+              lines.push({ words: [chunk], width: getSegmentWidth(chunk) });
+              chunk = word[i];
+            } else {
+              chunk = testChunk;
+            }
+          }
+          if (chunk.length > 0) {
+            curLineWords = [chunk];
+            curLineWidth = getSegmentWidth(chunk);
+          }
+          continue;
+        }
+
+        const testWidth = curLineWords.length === 0 ? wWidth : curLineWidth + spaceWidth + wWidth;
+
+        if (testWidth <= maxAvailableWidth || curLineWords.length === 0) {
+          curLineWords.push(word);
+          curLineWidth = testWidth;
+        } else {
+          lines.push({ words: curLineWords, width: curLineWidth });
+          curLineWords = [word];
+          curLineWidth = wWidth;
+        }
+      }
+
+      if (curLineWords.length > 0) {
+        lines.push({ words: curLineWords, width: curLineWidth });
+      }
     }
 
     // 2. Calculate Total Block Dimensions for Vertical Centering
@@ -422,17 +473,17 @@ class TypeLoomStudio {
 
     let globalCharIndex = 0;
 
-    // 3. Position characters line-by-line with exact horizontal centering
+    // 3. Render lines with exact horizontal centering
     for (let l = 0; l < lines.length; l++) {
-      const line = lines[l];
+      const lineObj = lines[l];
       const lineY = blockStartY + l * lineHeight;
-      const lineStartX = Math.max(padX, (this.width - line.width) / 2);
+      const lineStartX = Math.max(padX, (this.width - lineObj.width) / 2);
 
       let currentX = lineStartX;
       let lastPin = null;
 
-      for (let w = 0; w < line.words.length; w++) {
-        const word = line.words[w];
+      for (let w = 0; w < lineObj.words.length; w++) {
+        const word = lineObj.words[w];
 
         for (let c = 0; c < word.length; c++) {
           const char = word[c];
@@ -508,8 +559,8 @@ class TypeLoomStudio {
           globalCharIndex++;
         }
 
-        // Add space gap between words (and reset lastPin so threads don't jump across space)
-        if (w < line.words.length - 1) {
+        // Space gap between words
+        if (w < lineObj.words.length - 1) {
           currentX += spaceWidth - letterSpacing;
           lastPin = null;
         }
