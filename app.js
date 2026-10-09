@@ -229,16 +229,26 @@ class TypeLoomStudio {
     });
 
     // Pin Toggle
+    this.pinStatusDot = document.getElementById('pin-status-dot');
     this.btnTogglePins.addEventListener('click', () => {
       this.showPins = !this.showPins;
-      this.pinIconEl.textContent = this.showPins ? '📍' : '⭕';
-      this.pinStatusText.textContent = this.showPins ? 'Pins On' : 'Pins Off';
+      if (this.pinStatusDot) {
+        if (this.showPins) this.pinStatusDot.classList.add('active');
+        else this.pinStatusDot.classList.remove('active');
+      }
+      this.pinStatusText.textContent = this.showPins ? 'Pins: On' : 'Pins: Off';
     });
 
     // Sound Toggle
+    this.soundStatusDot = document.getElementById('sound-status-dot');
+    this.soundStatusText = document.getElementById('sound-status-text');
     this.btnToggleSound.addEventListener('click', () => {
       const isMuted = window.LoomAudio.toggleMute();
-      this.soundIconEl.textContent = isMuted ? '🔇' : '🔊';
+      if (this.soundStatusDot) {
+        if (!isMuted) this.soundStatusDot.classList.add('active');
+        else this.soundStatusDot.classList.remove('active');
+      }
+      this.soundStatusText.textContent = isMuted ? 'Audio: Off' : 'Audio: On';
     });
 
     // Clear Canvas
