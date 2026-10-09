@@ -45,9 +45,9 @@ class TypeLoomStudio {
 
     // Pin & Thread State
     this.showPins = true;
-    this.threadThickness = 2.5;
-    this.tension = 0.85;
-    this.gravity = 0.22;
+    this.threadThickness = 2.6;
+    this.tension = 0.95;
+    this.gravity = 0.08;
 
     // Typography State
     this.textString = '';
@@ -391,16 +391,31 @@ class TypeLoomStudio {
       fontSize = Math.max(52, this.baseFontSize * 0.8);
     }
 
-    const charWidth = fontSize * 0.68;
     const charHeight = fontSize;
-    const letterSpacing = Math.max(8, fontSize * 0.16);
-    const spaceWidth = fontSize * 0.42;
-    const lineHeight = fontSize * 1.32;
+    const letterSpacing = Math.max(6, fontSize * 0.12);
+    const spaceWidth = fontSize * 0.38;
+    const lineHeight = fontSize * 1.28;
 
-    // Helper: calculate width of any string segment
+    // Proportional character width calculator
+    const getCharWidth = (ch) => {
+      const wideChars = 'MWmw#%@';
+      const narrowChars = 'Iijl!|.,:;\'"1tfr`';
+      const mediumNarrow = 'Jksxz';
+      if (wideChars.includes(ch)) return fontSize * 0.82;
+      if (narrowChars.includes(ch)) return fontSize * 0.36;
+      if (mediumNarrow.includes(ch)) return fontSize * 0.52;
+      return fontSize * 0.62;
+    };
+
+    // Helper: calculate total pixel width of any string segment
     const getSegmentWidth = (seg) => {
       if (!seg || seg.length === 0) return 0;
-      return seg.length * charWidth + (seg.length - 1) * letterSpacing;
+      let total = 0;
+      for (let i = 0; i < seg.length; i++) {
+        total += getCharWidth(seg[i]);
+        if (i < seg.length - 1) total += letterSpacing;
+      }
+      return total;
     };
 
     // 1. Break text into lines supporting both explicit newlines (\n) and auto-wrapping
@@ -473,25 +488,25 @@ class TypeLoomStudio {
 
     let globalCharIndex = 0;
 
-    // 3. Render lines with exact horizontal centering
+    // 3. Render lines with exact horizontal centering & clean typographic strokes
     for (let l = 0; l < lines.length; l++) {
       const lineObj = lines[l];
       const lineY = blockStartY + l * lineHeight;
       const lineStartX = Math.max(padX, (this.width - lineObj.width) / 2);
 
       let currentX = lineStartX;
-      let lastPin = null;
 
       for (let w = 0; w < lineObj.words.length; w++) {
         const word = lineObj.words[w];
 
         for (let c = 0; c < word.length; c++) {
           const char = word[c];
+          const charW = getCharWidth(char);
           const topo = window.getGlyphTopology(char);
           const charId = `c_${l}_${w}_${c}_${char}`;
 
           const pins = topo.pins.map(p => ({
-            x: currentX + p.x * charWidth,
+            x: currentX + p.x * charW,
             y: lineY + p.y * charHeight
           }));
 
@@ -500,7 +515,7 @@ class TypeLoomStudio {
             char: char,
             x: currentX,
             y: lineY,
-            width: charWidth,
+            width: charW,
             height: charHeight,
             pins: pins
           });
@@ -508,7 +523,7 @@ class TypeLoomStudio {
           const palette = this.theme.threadColors;
           const charColor = palette[globalCharIndex % palette.length];
 
-          // Primary glyph strokes
+          // Primary typographic glyph strokes
           topo.strokes.forEach((strokeIndices) => {
             for (let i = 0; i < strokeIndices.length - 1; i++) {
               const p1 = pins[strokeIndices[i]];
@@ -525,44 +540,13 @@ class TypeLoomStudio {
             }
           });
 
-          // Cross-weave lattice
-          if (pins.length >= 3) {
-            for (let i = 0; i < 2; i++) {
-              const idxA = i % pins.length;
-              const idxB = (i + Math.floor(pins.length / 2)) % pins.length;
-              if (idxA !== idxB) {
-                const thread = new LoomThread(pins[idxA], pins[idxB], {
-                  color: palette[(globalCharIndex + i + 1) % palette.length],
-                  thickness: this.threadThickness * 0.8,
-                  tension: this.tension * 0.9,
-                  charId: charId
-                });
-                this.threads.push(thread);
-              }
-            }
-          }
-
-          // Inter-letter bridge within the same word
-          if (lastPin && pins.length > 0) {
-            const bridgeThread = new LoomThread(lastPin, pins[0], {
-              color: this.theme.bridgeColor,
-              thickness: this.threadThickness * 0.9,
-              tension: this.tension * 0.8,
-              charId: charId,
-              isBridge: true
-            });
-            this.threads.push(bridgeThread);
-          }
-
-          lastPin = pins[pins.length - 1];
-          currentX += charWidth + letterSpacing;
+          currentX += charW + letterSpacing;
           globalCharIndex++;
         }
 
         // Space gap between words
         if (w < lineObj.words.length - 1) {
-          currentX += spaceWidth - letterSpacing;
-          lastPin = null;
+          currentX += spaceWidth;
         }
       }
     }

@@ -45,8 +45,8 @@ class LoomThread {
     }
 
     const totalDist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
-    // Resting segment length influenced by tension
-    this.segLength = (totalDist / this.segments) * (1.02 - this.tension * 0.15);
+    // Resting segment length maintains taut typographic stroke geometry while allowing physical pluck elasticity
+    this.segLength = (totalDist / this.segments) * 0.99;
 
     // Dynamic states
     this.isCut = false;
