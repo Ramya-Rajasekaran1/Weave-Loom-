@@ -59,8 +59,14 @@ class TypeLoomStudio {
     this.mousePrev = { x: 0, y: 0 };
     this.mouseCurr = { x: 0, y: 0 };
 
-    // Visitor Entity
-    this.visitor = { x: 200, y: 200, angle: 0 };
+    // Kinetic Entity States
+    this.visitor = { x: 200, y: 200, angle: 0, trail: [] };
+    this.shuttles = [
+      { x: 0, y: 0, trail: [], color: '#1ABCFE', glow: '#00F0FF', radius: 5 },
+      { x: 0, y: 0, trail: [], color: '#FF7262', glow: '#F24E1E', radius: 5 }
+    ];
+    this.plasmaSparks = [];
+    this.plasmaLastBeamX = 0;
 
     this.init();
   }
@@ -378,110 +384,121 @@ class TypeLoomStudio {
 
     this.emptyState.classList.add('hidden');
 
-    // Safe Canvas Margins / Padding
-    const padX = Math.max(36, this.width * 0.08);
-    const padY = Math.max(48, this.height * 0.12);
-    const maxAvailableWidth = Math.max(120, this.width - padX * 2);
+    // Strict Fixed Canvas Safe-Zone Padding (Top, Bottom, Left, Right)
+    const padLeft = Math.max(40, Math.round(this.width * 0.08));
+    const padRight = padLeft;
+    const padTop = Math.max(48, Math.round(this.height * 0.10));
+    const padBottom = padTop;
+
+    const maxAvailableWidth = Math.max(100, this.width - (padLeft + padRight));
+    const maxAvailableHeight = Math.max(80, this.height - (padTop + padBottom));
 
     // Adaptive font scaling
     let fontSize = this.baseFontSize;
-    if (this.textString.length > 24) {
-      fontSize = Math.max(42, this.baseFontSize * 0.65);
-    } else if (this.textString.length > 14) {
-      fontSize = Math.max(52, this.baseFontSize * 0.8);
-    }
-
-    const charHeight = fontSize;
-    const letterSpacing = Math.max(6, fontSize * 0.12);
-    const spaceWidth = fontSize * 0.38;
-    const lineHeight = fontSize * 1.28;
 
     // Proportional character width calculator
-    const getCharWidth = (ch) => {
+    const getCharWidth = (ch, fSize) => {
       const wideChars = 'MWmw#%@';
       const narrowChars = 'Iijl!|.,:;\'"1tfr`';
       const mediumNarrow = 'Jksxz';
-      if (wideChars.includes(ch)) return fontSize * 0.82;
-      if (narrowChars.includes(ch)) return fontSize * 0.36;
-      if (mediumNarrow.includes(ch)) return fontSize * 0.52;
-      return fontSize * 0.62;
+      if (wideChars.includes(ch)) return fSize * 0.82;
+      if (narrowChars.includes(ch)) return fSize * 0.36;
+      if (mediumNarrow.includes(ch)) return fSize * 0.52;
+      return fSize * 0.62;
     };
 
     // Helper: calculate total pixel width of any string segment
-    const getSegmentWidth = (seg) => {
+    const getSegmentWidth = (seg, fSize, lSpacing) => {
       if (!seg || seg.length === 0) return 0;
       let total = 0;
       for (let i = 0; i < seg.length; i++) {
-        total += getCharWidth(seg[i]);
-        if (i < seg.length - 1) total += letterSpacing;
+        total += getCharWidth(seg[i], fSize);
+        if (i < seg.length - 1) total += lSpacing;
       }
       return total;
     };
 
-    // 1. Break text into lines supporting both explicit newlines (\n) and auto-wrapping
-    const paragraphs = this.textString.split('\n');
-    const lines = []; // array of { words: [], width: 0 }
+    // Function to compute lines and total height for a given font size
+    const layoutLines = (fSize) => {
+      const charH = fSize;
+      const lSpacing = Math.max(5, fSize * 0.12);
+      const spWidth = fSize * 0.38;
+      const lHeight = fSize * 1.28;
 
-    for (let p = 0; p < paragraphs.length; p++) {
-      const para = paragraphs[p];
-      if (para.length === 0) {
-        lines.push({ words: [''], width: 0 });
-        continue;
-      }
+      const paragraphs = this.textString.split('\n');
+      const lines = [];
 
-      const words = para.split(' ');
-      let curLineWords = [];
-      let curLineWidth = 0;
-
-      for (let w = 0; w < words.length; w++) {
-        const word = words[w];
-        const wWidth = getSegmentWidth(word);
-
-        // If a single word itself is wider than maxAvailableWidth, split it into chunks
-        if (wWidth > maxAvailableWidth && word.length > 1) {
-          if (curLineWords.length > 0) {
-            lines.push({ words: curLineWords, width: curLineWidth });
-            curLineWords = [];
-            curLineWidth = 0;
-          }
-
-          let chunk = '';
-          for (let i = 0; i < word.length; i++) {
-            const testChunk = chunk + word[i];
-            if (getSegmentWidth(testChunk) > maxAvailableWidth && chunk.length > 0) {
-              lines.push({ words: [chunk], width: getSegmentWidth(chunk) });
-              chunk = word[i];
-            } else {
-              chunk = testChunk;
-            }
-          }
-          if (chunk.length > 0) {
-            curLineWords = [chunk];
-            curLineWidth = getSegmentWidth(chunk);
-          }
+      for (let p = 0; p < paragraphs.length; p++) {
+        const para = paragraphs[p];
+        if (para.length === 0) {
+          lines.push({ words: [''], width: 0 });
           continue;
         }
 
-        const testWidth = curLineWords.length === 0 ? wWidth : curLineWidth + spaceWidth + wWidth;
+        const words = para.split(' ');
+        let curLineWords = [];
+        let curLineWidth = 0;
 
-        if (testWidth <= maxAvailableWidth || curLineWords.length === 0) {
-          curLineWords.push(word);
-          curLineWidth = testWidth;
-        } else {
+        for (let w = 0; w < words.length; w++) {
+          const word = words[w];
+          const wWidth = getSegmentWidth(word, fSize, lSpacing);
+
+          if (wWidth > maxAvailableWidth && word.length > 1) {
+            if (curLineWords.length > 0) {
+              lines.push({ words: curLineWords, width: curLineWidth });
+              curLineWords = [];
+              curLineWidth = 0;
+            }
+
+            let chunk = '';
+            for (let i = 0; i < word.length; i++) {
+              const testChunk = chunk + word[i];
+              if (getSegmentWidth(testChunk, fSize, lSpacing) > maxAvailableWidth && chunk.length > 0) {
+                lines.push({ words: [chunk], width: getSegmentWidth(chunk, fSize, lSpacing) });
+                chunk = word[i];
+              } else {
+                chunk = testChunk;
+              }
+            }
+            if (chunk.length > 0) {
+              curLineWords = [chunk];
+              curLineWidth = getSegmentWidth(chunk, fSize, lSpacing);
+            }
+            continue;
+          }
+
+          const testWidth = curLineWords.length === 0 ? wWidth : curLineWidth + spWidth + wWidth;
+
+          if (testWidth <= maxAvailableWidth || curLineWords.length === 0) {
+            curLineWords.push(word);
+            curLineWidth = testWidth;
+          } else {
+            lines.push({ words: curLineWords, width: curLineWidth });
+            curLineWords = [word];
+            curLineWidth = wWidth;
+          }
+        }
+
+        if (curLineWords.length > 0) {
           lines.push({ words: curLineWords, width: curLineWidth });
-          curLineWords = [word];
-          curLineWidth = wWidth;
         }
       }
 
-      if (curLineWords.length > 0) {
-        lines.push({ words: curLineWords, width: curLineWidth });
-      }
+      const totalH = lines.length * charH + (lines.length - 1) * (lHeight - charH);
+      return { lines, totalH, charH, lSpacing, spWidth, lHeight };
+    };
+
+    // Auto-fit font size if content exceeds available height
+    let layout = layoutLines(fontSize);
+    while (layout.totalH > maxAvailableHeight && fontSize > 24) {
+      fontSize -= 4;
+      layout = layoutLines(fontSize);
     }
 
-    // 2. Calculate Total Block Dimensions for Vertical Centering
-    const totalBlockHeight = lines.length * charHeight + (lines.length - 1) * (lineHeight - charHeight);
-    const blockStartY = Math.max(padY, (this.height - totalBlockHeight) / 2);
+    const { lines, totalH, charH, lSpacing, spWidth, lHeight } = layout;
+
+    // 2. Strict Safe-Zone Centering (Guarantees top, bottom, left, right padding)
+    const blockStartY = padTop + Math.max(0, (maxAvailableHeight - totalH) / 2);
 
     this.characters = [];
     this.threads = [];
@@ -491,8 +508,8 @@ class TypeLoomStudio {
     // 3. Render lines with exact horizontal centering & clean typographic strokes
     for (let l = 0; l < lines.length; l++) {
       const lineObj = lines[l];
-      const lineY = blockStartY + l * lineHeight;
-      const lineStartX = Math.max(padX, (this.width - lineObj.width) / 2);
+      const lineY = blockStartY + l * lHeight;
+      const lineStartX = padLeft + Math.max(0, (maxAvailableWidth - lineObj.width) / 2);
 
       let currentX = lineStartX;
 
@@ -682,70 +699,224 @@ class TypeLoomStudio {
 
   applyKineticEffects(time) {
     if (this.currentEffect === 'breathe') {
-      const sway = Math.sin(time * 0.002) * 1.8;
+      const sway = Math.sin(time * 0.002) * 2.5;
       this.threads.forEach(t => {
         t.nodes.forEach((n, idx) => {
           if (!n.isPinned) {
-            n.y += Math.sin(time * 0.0025 + idx * 0.4) * 0.4;
-            n.x += sway * 0.18;
+            n.y += Math.sin(time * 0.003 + idx * 0.5) * 0.6;
+            n.x += sway * 0.25;
           }
         });
       });
     } else if (this.currentEffect === 'gust') {
-      const gustCycle = (time * 0.001) % 4;
-      if (gustCycle < 1.6) {
-        const gustForce = Math.sin((gustCycle / 1.6) * Math.PI) * 3.2;
+      const gustCycle = (time * 0.0012) % 4;
+      if (gustCycle < 1.8) {
+        const gustForce = Math.sin((gustCycle / 1.8) * Math.PI) * 4.2;
         this.threads.forEach(t => {
           t.nodes.forEach(n => {
-            if (!n.isPinned) n.x += gustForce * (0.8 + Math.random() * 0.4);
+            if (!n.isPinned) n.x += gustForce * (0.9 + Math.random() * 0.3);
           });
         });
       }
-    } else if (this.currentEffect === 'zerog') {
-      // 3. Zero-G Drift: Weightless strings float and undulate with buoyant micro-turbulence
-      this.threads.forEach(t => {
-        t.nodes.forEach((n, idx) => {
-          if (!n.isPinned) {
-            const floatOffset = Math.sin(time * 0.003 + idx * 0.6) * 1.5;
-            const floatDrift = Math.cos(time * 0.002 + idx * 0.4) * 1.0;
-            n.y -= 0.32 + floatOffset * 0.3;
-            n.x += floatDrift * 0.25;
-          }
-        });
-      });
-    } else if (this.currentEffect === 'shimmer') {
-      // 4. Prism Shimmer: Travelling iridescent light pulse sweeping across threads
-      const wavePos = (time * 0.18) % (this.width + 300);
-      this.threads.forEach(t => {
-        t.nodes.forEach(n => {
-          const distToWave = Math.abs(n.x - wavePos);
-          if (distToWave < 100 && !n.isPinned) {
-            const shimmerPower = (1 - distToWave / 100) * 2.2;
-            n.y += (Math.random() - 0.5) * shimmerPower;
-          }
-        });
-      });
-    } else if (this.currentEffect === 'visitor') {
-      this.visitor.angle += 0.03;
-      this.visitor.x = this.width * 0.5 + Math.sin(this.visitor.angle) * (this.width * 0.35);
-      this.visitor.y = this.height * 0.5 + Math.sin(this.visitor.angle * 2) * 90;
+    } else if (this.currentEffect === 'shuttles') {
+      // 03. Twin Shuttles: Two radiant glowing kinetic shuttles criss-crossing and plucking threads
+      const s1 = this.shuttles[0];
+      const s2 = this.shuttles[1];
 
+      // Update positions along dynamic intertwined Lissajous orbits
+      s1.x = this.width * 0.5 + Math.sin(time * 0.0018) * (this.width * 0.42);
+      s1.y = this.height * 0.5 + Math.sin(time * 0.0036) * (this.height * 0.3);
+
+      s2.x = this.width * 0.5 + Math.cos(time * 0.0015 + 1.2) * (this.width * 0.4);
+      s2.y = this.height * 0.5 + Math.sin(time * 0.003 + 0.8) * (this.height * 0.32);
+
+      // Render both shuttles with glowing trails and halos
+      this.shuttles.forEach((s) => {
+        // Track trail
+        s.trail.push({ x: s.x, y: s.y });
+        if (s.trail.length > 10) s.trail.shift();
+
+        // Draw luminous trail
+        this.ctx.save();
+        for (let i = 0; i < s.trail.length - 1; i++) {
+          const pA = s.trail[i];
+          const pB = s.trail[i + 1];
+          const alpha = (i / s.trail.length) * 0.6;
+          this.ctx.strokeStyle = s.glow;
+          this.ctx.globalAlpha = alpha;
+          this.ctx.lineWidth = 3;
+          this.ctx.shadowColor = s.glow;
+          this.ctx.shadowBlur = 10;
+          this.ctx.beginPath();
+          this.ctx.moveTo(pA.x, pA.y);
+          this.ctx.lineTo(pB.x, pB.y);
+          this.ctx.stroke();
+        }
+        this.ctx.restore();
+
+        // Draw radiant shuttle orb
+        this.ctx.save();
+        this.ctx.shadowColor = s.glow;
+        this.ctx.shadowBlur = 22;
+        this.ctx.fillStyle = s.color;
+        this.ctx.beginPath();
+        this.ctx.arc(s.x, s.y, s.radius + 1.5, 0, Math.PI * 2);
+        this.ctx.fill();
+
+        // White hot center
+        this.ctx.fillStyle = '#FFFFFF';
+        this.ctx.beginPath();
+        this.ctx.arc(s.x, s.y, s.radius * 0.45, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.restore();
+
+        // Pluck nearby strings
+        let hitString = false;
+        this.threads.forEach(t => {
+          t.nodes.forEach(n => {
+            if (Math.hypot(n.x - s.x, n.y - s.y) < 30) {
+              t.pluck(11);
+              hitString = true;
+            }
+          });
+        });
+        if (hitString) {
+          window.LoomAudio.playPluck(null, 0.65);
+        }
+      });
+    } else if (this.currentEffect === 'plasma') {
+      // 04. Plasma Surge: Sweeping high-voltage neon plasma laser with electric lightning arcs
+      const beamX = ((time * 0.18) % (this.width + 300)) - 150;
+
+      // 1. Draw glowing vertical plasma wavefront
       this.ctx.save();
-      this.ctx.fillStyle = '#1ABCFE';
-      this.ctx.shadowColor = '#F24E1E';
-      this.ctx.shadowBlur = 16;
+      const grad = this.ctx.createLinearGradient(beamX - 35, 0, beamX + 35, 0);
+      grad.addColorStop(0, 'rgba(162, 89, 255, 0)');
+      grad.addColorStop(0.5, 'rgba(26, 188, 254, 0.35)');
+      grad.addColorStop(0.5, 'rgba(255, 255, 255, 0.85)');
+      grad.addColorStop(1, 'rgba(162, 89, 255, 0)');
+
+      this.ctx.fillStyle = grad;
+      this.ctx.fillRect(beamX - 30, 0, 60, this.height);
+
+      // Core electric laser beam
+      this.ctx.strokeStyle = '#FFFFFF';
+      this.ctx.shadowColor = '#00F0FF';
+      this.ctx.shadowBlur = 24;
+      this.ctx.lineWidth = 2.5;
       this.ctx.beginPath();
-      this.ctx.arc(this.visitor.x, this.visitor.y, 4, 0, Math.PI * 2);
-      this.ctx.fill();
+      this.ctx.moveTo(beamX, 0);
+      this.ctx.lineTo(beamX, this.height);
+      this.ctx.stroke();
       this.ctx.restore();
 
+      // 2. Find pins near the plasma beam & draw electric lightning arcs
+      const activePins = [];
+      this.characters.forEach(c => {
+        c.pins.forEach(p => {
+          if (Math.abs(p.x - beamX) < 48) {
+            activePins.push(p);
+          }
+        });
+      });
+
+      if (activePins.length > 1) {
+        this.ctx.save();
+        this.ctx.strokeStyle = '#A259FF';
+        this.ctx.shadowColor = '#1ABCFE';
+        this.ctx.shadowBlur = 16;
+        this.ctx.lineWidth = 2;
+        this.ctx.beginPath();
+        for (let i = 0; i < activePins.length - 1; i++) {
+          const p1 = activePins[i];
+          const p2 = activePins[i + 1];
+          const midX = (p1.x + p2.x) * 0.5 + (Math.random() - 0.5) * 16;
+          const midY = (p1.y + p2.y) * 0.5 + (Math.random() - 0.5) * 16;
+          this.ctx.moveTo(p1.x, p1.y);
+          this.ctx.quadraticCurveTo(midX, midY, p2.x, p2.y);
+        }
+        this.ctx.stroke();
+        this.ctx.restore();
+      }
+
+      // 3. Pluck intersected strings
+      let plasmaHit = false;
+      this.threads.forEach(t => {
+        t.nodes.forEach(n => {
+          if (Math.abs(n.x - beamX) < 24 && !n.isPinned) {
+            t.pluck(12);
+            n.y += (Math.random() - 0.5) * 4;
+            plasmaHit = true;
+          }
+        });
+      });
+      if (plasmaHit) {
+        window.LoomAudio.playPluck(null, 0.7);
+      }
+    } else if (this.currentEffect === 'visitor') {
+      // 05. Luminous Needle: Wandering illuminated needle with golden stitch trail
+      this.visitor.angle += 0.025;
+      this.visitor.x = this.width * 0.5 + Math.sin(this.visitor.angle) * (this.width * 0.38);
+      this.visitor.y = this.height * 0.5 + Math.sin(this.visitor.angle * 2.2) * (this.height * 0.28);
+
+      // Trail
+      this.visitor.trail.push({ x: this.visitor.x, y: this.visitor.y });
+      if (this.visitor.trail.length > 14) this.visitor.trail.shift();
+
+      // Draw trailing golden silk thread
+      this.ctx.save();
+      for (let i = 0; i < this.visitor.trail.length - 1; i++) {
+        const p1 = this.visitor.trail[i];
+        const p2 = this.visitor.trail[i + 1];
+        const alpha = (i / this.visitor.trail.length) * 0.7;
+        this.ctx.strokeStyle = '#FFD700';
+        this.ctx.globalAlpha = alpha;
+        this.ctx.lineWidth = 2.2;
+        this.ctx.shadowColor = '#FFB800';
+        this.ctx.shadowBlur = 12;
+        this.ctx.beginPath();
+        this.ctx.moveTo(p1.x, p1.y);
+        this.ctx.lineTo(p2.x, p2.y);
+        this.ctx.stroke();
+      }
+      this.ctx.restore();
+
+      // Draw Luminous Needle Body & Glowing Beacon
+      this.ctx.save();
+      this.ctx.shadowColor = '#1ABCFE';
+      this.ctx.shadowBlur = 24;
+      this.ctx.fillStyle = '#00F0FF';
+      this.ctx.beginPath();
+      this.ctx.arc(this.visitor.x, this.visitor.y, 5.5, 0, Math.PI * 2);
+      this.ctx.fill();
+
+      // Radiant Core
+      this.ctx.fillStyle = '#FFFFFF';
+      this.ctx.beginPath();
+      this.ctx.arc(this.visitor.x, this.visitor.y, 2.5, 0, Math.PI * 2);
+      this.ctx.fill();
+
+      // Outer Pulse Ring
+      const pulseR = 8 + Math.sin(time * 0.008) * 3;
+      this.ctx.strokeStyle = 'rgba(26, 188, 254, 0.6)';
+      this.ctx.lineWidth = 1.5;
+      this.ctx.beginPath();
+      this.ctx.arc(this.visitor.x, this.visitor.y, pulseR, 0, Math.PI * 2);
+      this.ctx.stroke();
+      this.ctx.restore();
+
+      let needlePluck = false;
       this.threads.forEach(t => {
         t.nodes.forEach(n => {
           if (Math.hypot(n.x - this.visitor.x, n.y - this.visitor.y) < 32) {
-            t.pluck(9);
+            t.pluck(10);
+            needlePluck = true;
           }
         });
       });
+      if (needlePluck) {
+        window.LoomAudio.playPluck(null, 0.65);
+      }
     }
   }
 
