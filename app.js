@@ -567,7 +567,7 @@ class TypeLoomStudio {
 
         for (let c = 0; c < word.length; c++) {
           const char = word[c];
-          const charW = getCharWidth(char, fSize);
+          const charW = getCharWidth(char, fontSize);
           const topo = window.getGlyphTopology(char);
           const charId = `c_${l}_${w}_${c}_${char}`;
 
@@ -656,6 +656,7 @@ class TypeLoomStudio {
       if (foundPin) {
         this.draggedPin = foundPin;
         foundPin.isDragging = true;
+        this.canvas.style.cursor = 'grabbing';
         window.LoomAudio.playPluck(659.25, 0.85, true);
         this.lastStretchTick = performance.now();
       }
@@ -678,6 +679,19 @@ class TypeLoomStudio {
         }
         return;
       }
+
+      // Dynamic cursor: grab when hovering over pins, default otherwise
+      let hoveredPin = false;
+      for (const char of this.characters) {
+        for (const pin of char.pins) {
+          if (Math.hypot(pin.x - pos.x, pin.y - pos.y) < 18) {
+            hoveredPin = true;
+            break;
+          }
+        }
+        if (hoveredPin) break;
+      }
+      this.canvas.style.cursor = hoveredPin ? 'grab' : 'default';
 
       let pluckedAny = false;
       for (const thread of this.threads) {
