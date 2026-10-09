@@ -19,13 +19,9 @@
           <span class="project-tag">Type Loom</span>
           <span class="project-by">by <span class="author-name">Ramya</span></span>
         </div>
-        <!-- Keybinding Hints in Header -->
+        <!-- Keybinding Hints in Header: 2 main core actions -->
         <div class="header-hints" aria-hidden="true">
           <span class="hint-item"><kbd>Type</kbd> weave</span>
-          <span class="hint-item"><kbd>Space</kbd> cut</span>
-          <span class="hint-item"><kbd>Enter</kbd> new line</span>
-          <span class="hint-item"><kbd>⌫</kbd> unravel</span>
-          <span class="hint-item"><kbd>Esc</kbd> clear</span>
           <span class="hint-item"><kbd>Drag</kbd> pluck</span>
         </div>
       </div>
@@ -85,7 +81,7 @@
           <!-- Dynamically populated from themes.js -->
         </div>
 
-        <!-- Motion Effects Sub-Bar Row -->
+        <!-- Motion Effects Sub-Bar Row: Luminous Needle before Twin Shuttles, Plasma removed -->
         <div class="sub-ribbon-content" id="sub-ribbon-effects">
           <button class="ribbon-opt active" data-motion="breathe">
             <span class="r-badge">01</span>
@@ -95,40 +91,13 @@
             <span class="r-badge">02</span>
             <span class="r-title">Wind Gust</span>
           </button>
-          <button class="ribbon-opt" data-motion="shuttles">
-            <span class="r-badge">03</span>
-            <span class="r-title">Twin Shuttles</span>
-          </button>
-          <button class="ribbon-opt" data-motion="plasma">
-            <span class="r-badge">04</span>
-            <span class="r-title">Plasma Surge</span>
-          </button>
           <button class="ribbon-opt" data-motion="visitor">
-            <span class="r-badge">05</span>
+            <span class="r-badge">03</span>
             <span class="r-title">Luminous Needle</span>
           </button>
-        </div>
-        <!-- Pin Styles Sub-Bar Row -->
-        <div class="sub-ribbon-content" id="sub-ribbon-pins">
-          <button class="ribbon-opt active" data-pin-style="pearls">
-            <span class="r-badge">01</span>
-            <span class="r-title">Glass Pearls</span>
-          </button>
-          <button class="ribbon-opt" data-pin-style="brass">
-            <span class="r-badge">02</span>
-            <span class="r-title">Brass Rivets</span>
-          </button>
-          <button class="ribbon-opt" data-pin-style="neon">
-            <span class="r-badge">03</span>
-            <span class="r-title">Neon Orbs</span>
-          </button>
-          <button class="ribbon-opt" data-pin-style="crosshairs">
+          <button class="ribbon-opt" data-motion="shuttles">
             <span class="r-badge">04</span>
-            <span class="r-title">Crosshairs</span>
-          </button>
-          <button class="ribbon-opt" data-pin-style="none">
-            <span class="r-badge">05</span>
-            <span class="r-title">Hidden</span>
+            <span class="r-title">Twin Shuttles</span>
           </button>
         </div>
       </div>
@@ -157,11 +126,10 @@
 
         <div class="dock-divider"></div>
 
-        <!-- 3. Pin Style Switcher Trigger -->
-        <button class="dock-item" id="pin-menu-trigger" title="Choose Pin Style">
-          <span class="dock-label">Pins</span>
-          <span class="active-effect-name" id="active-pin-name">Pearls</span>
-          <span class="chevron" id="pin-chevron">▾</span>
+        <!-- 3. Pins On / Off Toggle Button -->
+        <button id="btn-toggle-pins" class="dock-btn active" title="Toggle Anchor Pins" aria-label="Toggle Anchor Pins">
+          <span class="status-dot active" id="pins-status-dot"></span>
+          <span id="pins-status-text" class="btn-text-nowrap">Pins: On</span>
         </button>
 
         <div class="dock-divider"></div>

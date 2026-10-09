@@ -15,16 +15,16 @@ class TypeLoomStudio {
     // Dock & Sub-Ribbon Elements
     this.paletteMenuTrigger = document.getElementById('palette-menu-trigger');
     this.motionMenuTrigger = document.getElementById('motion-menu-trigger');
-    this.pinMenuTrigger = document.getElementById('pin-menu-trigger');
     this.dockSubRibbon = document.getElementById('dock-sub-ribbon');
     this.subRibbonPalettes = document.getElementById('sub-ribbon-palettes');
     this.subRibbonEffects = document.getElementById('sub-ribbon-effects');
-    this.subRibbonPins = document.getElementById('sub-ribbon-pins');
     this.currentPalettePreview = document.getElementById('current-palette-preview');
     this.activeEffectNameEl = document.getElementById('active-effect-name');
-    this.activePinNameEl = document.getElementById('active-pin-name');
 
     // Controls
+    this.btnTogglePins = document.getElementById('btn-toggle-pins');
+    this.pinsStatusDot = document.getElementById('pins-status-dot');
+    this.pinsStatusText = document.getElementById('pins-status-text');
     this.sliderStroke = document.getElementById('slider-stroke');
     this.valStroke = document.getElementById('val-stroke');
     this.btnToggleSound = document.getElementById('btn-toggle-sound');
@@ -39,13 +39,12 @@ class TypeLoomStudio {
     // Sub-Ribbon Active State
     this.activeSubMenu = null;
 
-    // Effect State: 'breathe' | 'gust' | 'shuttles' | 'plasma' | 'visitor'
+    // Effect State: 'breathe' | 'gust' | 'visitor' (Luminous Needle) | 'shuttles' (Twin Shuttles)
     this.currentEffect = 'breathe';
     this.effectTime = 0;
 
-    // Pin & Thread State
+    // Pin & Thread State (Clean On/Off Toggle)
     this.showPins = true;
-    this.pinStyle = 'pearls'; // 'pearls' | 'brass' | 'neon' | 'crosshairs' | 'none'
     this.threadThickness = 2.6;
     this.tension = 0.95;
     this.gravity = 0.08;
@@ -61,8 +60,8 @@ class TypeLoomStudio {
     this.baseFontSize = 96;
 
     // Mouse Tracking
-    this.mousePrev = { x: 0, y: 0 };
-    this.mouseCurr = { x: 0, y: 0 };
+    this.mousePrev = { x: -999, y: -999 };
+    this.mouseCurr = { x: -999, y: -999 };
 
     // Ambient Silk Dust Motes (Floating micro-particles like Type Garden)
     this.silkMotes = Array.from({ length: 18 }, () => ({
@@ -80,8 +79,6 @@ class TypeLoomStudio {
       { x: 0, y: 0, trail: [], color: '#1ABCFE', glow: '#00F0FF', radius: 5 },
       { x: 0, y: 0, trail: [], color: '#FF7262', glow: '#F24E1E', radius: 5 }
     ];
-    this.plasmaSparks = [];
-    this.plasmaLastBeamX = 0;
 
     this.init();
   }
@@ -191,16 +188,6 @@ class TypeLoomStudio {
       }
     });
 
-    // 3. Pin Style Trigger
-    this.pinMenuTrigger.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (this.activeSubMenu === 'pins') {
-        this.closeSubRibbon();
-      } else {
-        this.openSubRibbon('pins');
-      }
-    });
-
     // Effects Option Buttons inside sub-ribbon
     const effectBtns = this.subRibbonEffects.querySelectorAll('.ribbon-opt');
     effectBtns.forEach(btn => {
@@ -210,18 +197,7 @@ class TypeLoomStudio {
         this.currentEffect = btn.getAttribute('data-motion');
         this.activeEffectNameEl.textContent = btn.querySelector('.r-title').textContent;
         this.effectTime = 0;
-      });
-    });
-
-    // Pin Style Option Buttons inside sub-ribbon
-    const pinBtns = this.subRibbonPins.querySelectorAll('.ribbon-opt');
-    pinBtns.forEach(btn => {
-      btn.addEventListener('click', () => {
-        pinBtns.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        this.pinStyle = btn.getAttribute('data-pin-style');
-        this.activePinNameEl.textContent = btn.querySelector('.r-title').textContent;
-        window.LoomAudio.playPluck(659.25, 0.75, true);
+        window.LoomAudio.playPluck(587.33, 0.6, true);
       });
     });
   }
@@ -233,11 +209,9 @@ class TypeLoomStudio {
     // Reset all trigger highlights
     this.paletteMenuTrigger.classList.remove('active');
     this.motionMenuTrigger.classList.remove('active');
-    this.pinMenuTrigger.classList.remove('active');
 
     this.subRibbonPalettes.classList.remove('active');
     this.subRibbonEffects.classList.remove('active');
-    this.subRibbonPins.classList.remove('active');
 
     if (menuType === 'palettes') {
       this.paletteMenuTrigger.classList.add('active');
@@ -245,9 +219,6 @@ class TypeLoomStudio {
     } else if (menuType === 'effects') {
       this.motionMenuTrigger.classList.add('active');
       this.subRibbonEffects.classList.add('active');
-    } else if (menuType === 'pins') {
-      this.pinMenuTrigger.classList.add('active');
-      this.subRibbonPins.classList.add('active');
     }
   }
 
@@ -256,10 +227,8 @@ class TypeLoomStudio {
     this.dockSubRibbon.classList.remove('open');
     this.paletteMenuTrigger.classList.remove('active');
     this.motionMenuTrigger.classList.remove('active');
-    this.pinMenuTrigger.classList.remove('active');
     this.subRibbonPalettes.classList.remove('active');
     this.subRibbonEffects.classList.remove('active');
-    this.subRibbonPins.classList.remove('active');
   }
 
   applyTheme(themeKey) {
@@ -304,6 +273,22 @@ class TypeLoomStudio {
   }
 
   setupActionControls() {
+    // Pin On/Off Toggle
+    this.btnTogglePins.addEventListener('click', () => {
+      this.showPins = !this.showPins;
+      if (this.showPins) {
+        this.pinsStatusDot.classList.add('active');
+        this.pinsStatusText.textContent = 'Pins: On';
+        this.btnTogglePins.classList.add('active');
+        window.LoomAudio.playPluck(523.25, 0.65, true);
+      } else {
+        this.pinsStatusDot.classList.remove('active');
+        this.pinsStatusText.textContent = 'Pins: Off';
+        this.btnTogglePins.classList.remove('active');
+        window.LoomAudio.playSnip();
+      }
+    });
+
     // Stroke Thickness Slider
     this.sliderStroke.addEventListener('input', (e) => {
       this.threadThickness = parseFloat(e.target.value);
@@ -822,17 +807,34 @@ class TypeLoomStudio {
     // 2. Draw Ambient Floating Silk Motes
     this.drawSilkMotes();
 
-    // 3. Update Spring Return Physics on Pins
+    // 3. Dynamic Magnetic Repulsion & Harmonic Wobble Dispersion
     for (const char of this.characters) {
       for (const pin of char.pins) {
-        if (!pin.isDragging) {
+        if (pin.isDragging) continue;
+
+        const distToMouse = Math.hypot(pin.origX - this.mouseCurr.x, pin.origY - this.mouseCurr.y);
+        if (distToMouse < 95 && distToMouse > 0.5) {
+          // Disperse away from cursor with fluid elastic spring & harmonic wave wobble
+          const force = Math.pow((95 - distToMouse) / 95, 1.7) * 20;
+          const angle = Math.atan2(pin.origY - this.mouseCurr.y, pin.origX - this.mouseCurr.x);
+          const wobble = Math.sin(time * 0.008 + (pin.origX + pin.origY) * 0.035) * (force * 0.35);
+
+          const targetX = pin.origX + Math.cos(angle) * force + Math.sin(time * 0.006) * wobble;
+          const targetY = pin.origY + Math.sin(angle) * force + Math.cos(time * 0.006) * wobble;
+
+          const dx = targetX - pin.x;
+          const dy = targetY - pin.y;
+          pin.vx = (pin.vx + dx * 0.28) * 0.72;
+          pin.vy = (pin.vy + dy * 0.28) * 0.72;
+          pin.x += pin.vx;
+          pin.y += pin.vy;
+        } else {
+          // Elastic harmonic return to rest topology
           const dx = pin.origX - pin.x;
           const dy = pin.origY - pin.y;
           if (Math.hypot(dx, dy) > 0.2 || Math.hypot(pin.vx, pin.vy) > 0.2) {
-            const ax = dx * 0.24;
-            const ay = dy * 0.24;
-            pin.vx = (pin.vx + ax) * 0.74;
-            pin.vy = (pin.vy + ay) * 0.74;
+            pin.vx = (pin.vx + dx * 0.26) * 0.74;
+            pin.vy = (pin.vy + dy * 0.26) * 0.74;
             pin.x += pin.vx;
             pin.y += pin.vy;
           } else {
@@ -862,8 +864,8 @@ class TypeLoomStudio {
       thread.draw(this.ctx, time, this.theme);
     }
 
-    // 7. Draw Pins (Option C Styles)
-    if (this.pinStyle !== 'none') {
+    // 7. Draw Pins (On/Off Toggle)
+    if (this.showPins) {
       this.drawPins();
     }
 
@@ -909,133 +911,9 @@ class TypeLoomStudio {
           });
         });
       }
-    } else if (this.currentEffect === 'shuttles') {
-      // 03. Twin Shuttles
-      const s1 = this.shuttles[0];
-      const s2 = this.shuttles[1];
-
-      s1.x = this.width * 0.5 + Math.sin(time * 0.0018) * (this.width * 0.42);
-      s1.y = this.height * 0.5 + Math.sin(time * 0.0036) * (this.height * 0.3);
-
-      s2.x = this.width * 0.5 + Math.cos(time * 0.0015 + 1.2) * (this.width * 0.4);
-      s2.y = this.height * 0.5 + Math.sin(time * 0.003 + 0.8) * (this.height * 0.32);
-
-      this.shuttles.forEach((s) => {
-        s.trail.push({ x: s.x, y: s.y });
-        if (s.trail.length > 10) s.trail.shift();
-
-        this.ctx.save();
-        for (let i = 0; i < s.trail.length - 1; i++) {
-          const pA = s.trail[i];
-          const pB = s.trail[i + 1];
-          const alpha = (i / s.trail.length) * 0.6;
-          this.ctx.strokeStyle = s.glow;
-          this.ctx.globalAlpha = alpha;
-          this.ctx.lineWidth = 3;
-          this.ctx.shadowColor = s.glow;
-          this.ctx.shadowBlur = 10;
-          this.ctx.beginPath();
-          this.ctx.moveTo(pA.x, pA.y);
-          this.ctx.lineTo(pB.x, pB.y);
-          this.ctx.stroke();
-        }
-        this.ctx.restore();
-
-        this.ctx.save();
-        this.ctx.shadowColor = s.glow;
-        this.ctx.shadowBlur = 22;
-        this.ctx.fillStyle = s.color;
-        this.ctx.beginPath();
-        this.ctx.arc(s.x, s.y, s.radius + 1.5, 0, Math.PI * 2);
-        this.ctx.fill();
-
-        this.ctx.fillStyle = '#FFFFFF';
-        this.ctx.beginPath();
-        this.ctx.arc(s.x, s.y, s.radius * 0.45, 0, Math.PI * 2);
-        this.ctx.fill();
-        this.ctx.restore();
-
-        let hitString = false;
-        this.threads.forEach(t => {
-          t.nodes.forEach(n => {
-            if (Math.hypot(n.x - s.x, n.y - s.y) < 30) {
-              t.pluck(11);
-              hitString = true;
-            }
-          });
-        });
-        if (hitString) {
-          window.LoomAudio.playPluck(null, 0.7);
-        }
-      });
-    } else if (this.currentEffect === 'plasma') {
-      // 04. Plasma Surge
-      const beamX = ((time * 0.18) % (this.width + 300)) - 150;
-
-      this.ctx.save();
-      const grad = this.ctx.createLinearGradient(beamX - 35, 0, beamX + 35, 0);
-      grad.addColorStop(0, 'rgba(162, 89, 255, 0)');
-      grad.addColorStop(0.5, 'rgba(26, 188, 254, 0.35)');
-      grad.addColorStop(0.5, 'rgba(255, 255, 255, 0.85)');
-      grad.addColorStop(1, 'rgba(162, 89, 255, 0)');
-
-      this.ctx.fillStyle = grad;
-      this.ctx.fillRect(beamX - 30, 0, 60, this.height);
-
-      this.ctx.strokeStyle = '#FFFFFF';
-      this.ctx.shadowColor = '#00F0FF';
-      this.ctx.shadowBlur = 24;
-      this.ctx.lineWidth = 2.5;
-      this.ctx.beginPath();
-      this.ctx.moveTo(beamX, 0);
-      this.ctx.lineTo(beamX, this.height);
-      this.ctx.stroke();
-      this.ctx.restore();
-
-      const activePins = [];
-      this.characters.forEach(c => {
-        c.pins.forEach(p => {
-          if (Math.abs(p.x - beamX) < 48) {
-            activePins.push(p);
-          }
-        });
-      });
-
-      if (activePins.length > 1) {
-        this.ctx.save();
-        this.ctx.strokeStyle = '#A259FF';
-        this.ctx.shadowColor = '#1ABCFE';
-        this.ctx.shadowBlur = 16;
-        this.ctx.lineWidth = 2;
-        this.ctx.beginPath();
-        for (let i = 0; i < activePins.length - 1; i++) {
-          const p1 = activePins[i];
-          const p2 = activePins[i + 1];
-          const midX = (p1.x + p2.x) * 0.5 + (Math.random() - 0.5) * 16;
-          const midY = (p1.y + p2.y) * 0.5 + (Math.random() - 0.5) * 16;
-          this.ctx.moveTo(p1.x, p1.y);
-          this.ctx.quadraticCurveTo(midX, midY, p2.x, p2.y);
-        }
-        this.ctx.stroke();
-        this.ctx.restore();
-      }
-
-      let plasmaHit = false;
-      this.threads.forEach(t => {
-        t.nodes.forEach(n => {
-          if (Math.abs(n.x - beamX) < 24 && !n.isPinned) {
-            t.pluck(12);
-            n.y += (Math.random() - 0.5) * 4;
-            plasmaHit = true;
-          }
-        });
-      });
-      if (plasmaHit) {
-        window.LoomAudio.playPluck(null, 0.75);
-      }
     } else if (this.currentEffect === 'visitor') {
-      // 05. Luminous Needle
-      this.visitor.angle += 0.025;
+      // 03. Luminous Needle (orbits smoothly and gently plucks strings)
+      this.visitor.angle += 0.022;
       this.visitor.x = this.width * 0.5 + Math.sin(this.visitor.angle) * (this.width * 0.38);
       this.visitor.y = this.height * 0.5 + Math.sin(this.visitor.angle * 2.2) * (this.height * 0.28);
 
@@ -1090,115 +968,108 @@ class TypeLoomStudio {
         });
       });
       if (needlePluck) {
-        window.LoomAudio.playPluck(null, 0.7);
+        window.LoomAudio.playPluck(null, 0.6);
       }
+    } else if (this.currentEffect === 'shuttles') {
+      // 04. Twin Shuttles
+      const s1 = this.shuttles[0];
+      const s2 = this.shuttles[1];
+
+      s1.x = this.width * 0.5 + Math.sin(time * 0.0018) * (this.width * 0.42);
+      s1.y = this.height * 0.5 + Math.sin(time * 0.0036) * (this.height * 0.3);
+
+      s2.x = this.width * 0.5 + Math.cos(time * 0.0015 + 1.2) * (this.width * 0.4);
+      s2.y = this.height * 0.5 + Math.sin(time * 0.003 + 0.8) * (this.height * 0.32);
+
+      this.shuttles.forEach((s) => {
+        s.trail.push({ x: s.x, y: s.y });
+        if (s.trail.length > 10) s.trail.shift();
+
+        this.ctx.save();
+        for (let i = 0; i < s.trail.length - 1; i++) {
+          const pA = s.trail[i];
+          const pB = s.trail[i + 1];
+          const alpha = (i / s.trail.length) * 0.6;
+          this.ctx.strokeStyle = s.glow;
+          this.ctx.globalAlpha = alpha;
+          this.ctx.lineWidth = 3;
+          this.ctx.shadowColor = s.glow;
+          this.ctx.shadowBlur = 10;
+          this.ctx.beginPath();
+          this.ctx.moveTo(pA.x, pA.y);
+          this.ctx.lineTo(pB.x, pB.y);
+          this.ctx.stroke();
+        }
+        this.ctx.restore();
+
+        this.ctx.save();
+        this.ctx.shadowColor = s.glow;
+        this.ctx.shadowBlur = 22;
+        this.ctx.fillStyle = s.color;
+        this.ctx.beginPath();
+        this.ctx.arc(s.x, s.y, s.radius + 1.5, 0, Math.PI * 2);
+        this.ctx.fill();
+
+        this.ctx.fillStyle = '#FFFFFF';
+        this.ctx.beginPath();
+        this.ctx.arc(s.x, s.y, s.radius * 0.45, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.restore();
+
+        let hitString = false;
+        this.threads.forEach(t => {
+          t.nodes.forEach(n => {
+            if (Math.hypot(n.x - s.x, n.y - s.y) < 30) {
+              t.pluck(11);
+              hitString = true;
+            }
+          });
+        });
+        if (hitString) {
+          window.LoomAudio.playPluck(null, 0.65);
+        }
+      });
     }
   }
 
-  // Option C: Interactive Pin Style Renderers
+  // Anchor Pins Renderer (Tactile Glass Pearl anchors with specular glint)
   drawPins() {
+    if (!this.showPins) return;
     this.ctx.save();
 
     for (const char of this.characters) {
       for (const pin of char.pins) {
         const isDragged = pin.isDragging;
 
-        if (this.pinStyle === 'pearls') {
-          // 1. Glass Pearls: Iridescent shimmering pearl with specular glint
-          this.ctx.save();
-          this.ctx.shadowColor = 'rgba(0,0,0,0.55)';
-          this.ctx.shadowBlur = isDragged ? 14 : 5;
-          this.ctx.shadowOffsetY = isDragged ? 6 : 2;
+        this.ctx.save();
+        this.ctx.shadowColor = 'rgba(0,0,0,0.5)';
+        this.ctx.shadowBlur = isDragged ? 12 : 4;
+        this.ctx.shadowOffsetY = isDragged ? 4 : 1.5;
 
-          const rad = isDragged ? 6.5 : 4.5;
-          const grad = this.ctx.createRadialGradient(
-            pin.x - rad * 0.35, pin.y - rad * 0.35, rad * 0.1,
-            pin.x, pin.y, rad
-          );
-          grad.addColorStop(0, '#FFFFFF');
-          grad.addColorStop(0.45, '#E0E7FF');
-          grad.addColorStop(1, '#818CF8');
+        const rad = isDragged ? 6.0 : 4.2;
+        const grad = this.ctx.createRadialGradient(
+          pin.x - rad * 0.35, pin.y - rad * 0.35, rad * 0.1,
+          pin.x, pin.y, rad
+        );
+        grad.addColorStop(0, '#FFFFFF');
+        grad.addColorStop(0.45, '#E0E7FF');
+        grad.addColorStop(1, '#818CF8');
 
-          this.ctx.fillStyle = grad;
-          this.ctx.beginPath();
-          this.ctx.arc(pin.x, pin.y, rad, 0, Math.PI * 2);
-          this.ctx.fill();
+        this.ctx.fillStyle = grad;
+        this.ctx.beginPath();
+        this.ctx.arc(pin.x, pin.y, rad, 0, Math.PI * 2);
+        this.ctx.fill();
 
-          this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-          this.ctx.lineWidth = 0.8;
-          this.ctx.stroke();
+        this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+        this.ctx.lineWidth = 0.8;
+        this.ctx.stroke();
 
-          // Glint
-          this.ctx.fillStyle = '#FFFFFF';
-          this.ctx.beginPath();
-          this.ctx.arc(pin.x - rad * 0.35, pin.y - rad * 0.35, rad * 0.28, 0, Math.PI * 2);
-          this.ctx.fill();
-          this.ctx.restore();
-
-        } else if (this.pinStyle === 'brass') {
-          // 2. Brass Rivets: Metallic gold studio rivet with bevel & dimple
-          this.ctx.save();
-          this.ctx.shadowColor = 'rgba(0,0,0,0.6)';
-          this.ctx.shadowBlur = 5;
-          this.ctx.shadowOffsetY = 2;
-
-          const rad = isDragged ? 6.0 : 4.5;
-          const grad = this.ctx.createRadialGradient(
-            pin.x - rad * 0.3, pin.y - rad * 0.3, rad * 0.1,
-            pin.x, pin.y, rad
-          );
-          grad.addColorStop(0, '#FFE082');
-          grad.addColorStop(0.6, '#B8860B');
-          grad.addColorStop(1, '#4E342E');
-
-          this.ctx.fillStyle = grad;
-          this.ctx.beginPath();
-          this.ctx.arc(pin.x, pin.y, rad, 0, Math.PI * 2);
-          this.ctx.fill();
-
-          // Center puncture dimple
-          this.ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
-          this.ctx.beginPath();
-          this.ctx.arc(pin.x, pin.y, rad * 0.3, 0, Math.PI * 2);
-          this.ctx.fill();
-          this.ctx.restore();
-
-        } else if (this.pinStyle === 'neon') {
-          // 3. Neon Orbs: Glowing neon beacon
-          this.ctx.save();
-          this.ctx.shadowColor = '#00F0FF';
-          this.ctx.shadowBlur = isDragged ? 20 : 12;
-          this.ctx.fillStyle = '#00F0FF';
-          this.ctx.beginPath();
-          this.ctx.arc(pin.x, pin.y, isDragged ? 5.5 : 4.0, 0, Math.PI * 2);
-          this.ctx.fill();
-
-          this.ctx.fillStyle = '#FFFFFF';
-          this.ctx.beginPath();
-          this.ctx.arc(pin.x, pin.y, 2, 0, Math.PI * 2);
-          this.ctx.fill();
-          this.ctx.restore();
-
-        } else if (this.pinStyle === 'crosshairs') {
-          // 4. Architectural Crosshairs: Minimalist technical drafting tick
-          this.ctx.save();
-          this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
-          this.ctx.lineWidth = 1.2;
-          const sz = isDragged ? 7 : 5;
-
-          this.ctx.beginPath();
-          this.ctx.moveTo(pin.x - sz, pin.y);
-          this.ctx.lineTo(pin.x + sz, pin.y);
-          this.ctx.moveTo(pin.x, pin.y - sz);
-          this.ctx.lineTo(pin.x, pin.y + sz);
-          this.ctx.stroke();
-
-          this.ctx.fillStyle = '#FFFFFF';
-          this.ctx.beginPath();
-          this.ctx.arc(pin.x, pin.y, 1.5, 0, Math.PI * 2);
-          this.ctx.fill();
-          this.ctx.restore();
-        }
+        // Top specular glint
+        this.ctx.fillStyle = '#FFFFFF';
+        this.ctx.beginPath();
+        this.ctx.arc(pin.x - rad * 0.35, pin.y - rad * 0.35, rad * 0.28, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.restore();
       }
     }
 
