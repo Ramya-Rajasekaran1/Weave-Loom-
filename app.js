@@ -333,7 +333,7 @@ class TypeLoomStudio {
           } else {
             this.textString += char;
             this.rebuildAllCharacters();
-            window.LoomAudio.playPluck(null, 0.7);
+            window.LoomAudio.playPluck(null, 0.75, true);
           }
         }
         this.typeInput.value = '';
@@ -344,7 +344,7 @@ class TypeLoomStudio {
   handleEnter() {
     this.textString += '\n';
     this.rebuildAllCharacters();
-    window.LoomAudio.playPluck(329.63, 0.7);
+    window.LoomAudio.playPluck(329.63, 0.8, true);
   }
 
   handleSpace() {
