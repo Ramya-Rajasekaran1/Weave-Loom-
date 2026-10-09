@@ -1,5 +1,6 @@
 /**
  * Type Loom — Main Interactive Application Controller
+ * High-craft generative tactile typography with Type Garden style UI controls.
  */
 
 class TypeLoomApp {
@@ -9,22 +10,23 @@ class TypeLoomApp {
     this.typeInput = document.getElementById('type-input');
     this.emptyState = document.getElementById('empty-state');
 
-    // Stats & UI elements
-    this.charCountEl = document.getElementById('char-count');
-    this.threadCountEl = document.getElementById('thread-count');
-    this.themeNameEl = document.getElementById('theme-name');
+    // UI elements
     this.soundIconEl = document.getElementById('sound-icon');
+    this.paletteGroupEl = document.getElementById('palette-swatches');
 
     // Controls
     this.sliderTension = document.getElementById('slider-tension');
     this.sliderGravity = document.getElementById('slider-gravity');
     this.sliderDensity = document.getElementById('slider-density');
-    this.selectPins = document.getElementById('select-pins');
+    this.valTension = document.getElementById('val-tension');
+    this.valGravity = document.getElementById('val-gravity');
+    this.valDensity = document.getElementById('val-density');
+    this.pinStyleControl = document.getElementById('pin-style-control');
 
     // Themes
     this.themeKeys = Object.keys(LOOM_THEMES);
-    this.currentThemeIndex = 0;
-    this.theme = LOOM_THEMES[this.themeKeys[this.currentThemeIndex]];
+    this.currentThemeKey = 'rose'; // Default to iconic Type Garden-esque vibrant red/blue/black
+    this.theme = LOOM_THEMES[this.currentThemeKey];
 
     // State
     this.characters = []; // { id, char, x, y, width, height, pins: [] }
@@ -32,9 +34,9 @@ class TypeLoomApp {
     this.lastPin = null;  // For bridging between consecutive letters
 
     // Layout settings
-    this.fontSize = 72;
-    this.lineHeight = 110;
-    this.letterSpacing = 16;
+    this.fontSize = 80;
+    this.lineHeight = 124;
+    this.letterSpacing = 18;
     this.startX = 80;
     this.startY = 180;
     this.cursorX = this.startX;
@@ -52,7 +54,10 @@ class TypeLoomApp {
     this.tension = parseFloat(this.sliderTension.value);
     this.gravity = parseFloat(this.sliderGravity.value);
     this.weaveDensity = parseInt(this.sliderDensity.value, 10);
-    this.pinStyle = this.selectPins.value;
+    this.pinStyle = 'brass';
+
+    // Sample showcase words for shuffle / quick demo
+    this.sampleWords = ['TYPE GARDEN', 'WEAVE', 'TACTILE', 'STRINGS', 'CREATIVE', 'HARMONY', 'AESTHETIC', 'BLOOM'];
 
     this.init();
   }
@@ -61,19 +66,22 @@ class TypeLoomApp {
     this.resize();
     window.addEventListener('resize', () => this.resize());
 
-    // Auto-focus hidden input on any click
+    // Auto-focus hidden input on any click (unless clicking on interactive UI)
     window.addEventListener('click', (e) => {
-      // Ignore clicks on control panels
-      if (!e.target.closest('.controls-card') && !e.target.closest('.top-nav')) {
+      if (!e.target.closest('.bottom-dock-container') && !e.target.closest('.top-actions')) {
         this.focusInput();
       }
     });
 
+    this.renderPaletteSwatches();
     this.setupKeyEvents();
     this.setupMouseEvents();
     this.setupUIEvents();
 
-    // Start 60fps loop
+    // Start with default theme styling
+    this.applyTheme(this.currentThemeKey);
+
+    // Initial 60fps loop
     requestAnimationFrame((t) => this.renderLoop(t));
   }
 
@@ -88,13 +96,13 @@ class TypeLoomApp {
 
     // Responsive layout scaling
     if (this.width < 600) {
-      this.fontSize = 46;
-      this.lineHeight = 74;
-      this.startX = 28;
-      this.startY = 140;
+      this.fontSize = 50;
+      this.lineHeight = 80;
+      this.startX = 24;
+      this.startY = 130;
     } else {
-      this.fontSize = 72;
-      this.lineHeight = 110;
+      this.fontSize = 80;
+      this.lineHeight = 124;
       this.startX = 80;
       this.startY = 180;
     }
@@ -104,8 +112,49 @@ class TypeLoomApp {
     this.typeInput.focus();
   }
 
+  renderPaletteSwatches() {
+    this.paletteGroupEl.innerHTML = '';
+    this.themeKeys.forEach((key) => {
+      const themeObj = LOOM_THEMES[key];
+      const btn = document.createElement('button');
+      btn.className = `palette-btn ${key === this.currentThemeKey ? 'active' : ''}`;
+      btn.title = themeObj.name;
+      btn.style.background = themeObj.previewGradient;
+      btn.addEventListener('click', () => {
+        this.applyTheme(key);
+      });
+      this.paletteGroupEl.appendChild(btn);
+    });
+  }
+
+  applyTheme(themeKey) {
+    this.currentThemeKey = themeKey;
+    this.theme = LOOM_THEMES[themeKey];
+
+    document.body.style.backgroundColor = this.theme.bg;
+    document.documentElement.style.setProperty('--bg-color', this.theme.bg);
+
+    // Update active swatch state
+    const btns = this.paletteGroupEl.querySelectorAll('.palette-btn');
+    btns.forEach((b, idx) => {
+      if (this.themeKeys[idx] === themeKey) {
+        b.classList.add('active');
+      } else {
+        b.classList.remove('active');
+      }
+    });
+
+    // Re-tint threads to new theme palette
+    this.threads.forEach((t, i) => {
+      if (!t.isBridge) {
+        t.color = this.theme.threadColors[i % this.theme.threadColors.length];
+      } else {
+        t.color = this.theme.bridgeColor;
+      }
+    });
+  }
+
   setupKeyEvents() {
-    // Hidden input receives characters
     this.typeInput.addEventListener('keydown', (e) => {
       if (e.key === 'Backspace') {
         e.preventDefault();
@@ -143,7 +192,6 @@ class TypeLoomApp {
       this.mousePrev = { ...this.mouseCurr };
       this.mouseCurr = { x: clientX, y: clientY };
 
-      // Check plucking collision across all active threads
       let pluckedAny = false;
       for (const thread of this.threads) {
         if (thread.checkPluck(this.mousePrev.x, this.mousePrev.y, this.mouseCurr.x, this.mouseCurr.y)) {
@@ -153,7 +201,7 @@ class TypeLoomApp {
 
       if (pluckedAny) {
         const speed = Math.hypot(this.mouseCurr.x - this.mousePrev.x, this.mouseCurr.y - this.mousePrev.y);
-        window.LoomAudio.playPluck(null, Math.min(speed / 15, 0.9));
+        window.LoomAudio.playPluck(null, Math.min(speed / 14, 0.95));
       }
     };
 
@@ -175,57 +223,43 @@ class TypeLoomApp {
       this.soundIconEl.textContent = isMuted ? '🔇' : '🔊';
     });
 
-    // Theme Switcher
-    document.getElementById('btn-theme').addEventListener('click', () => {
-      this.currentThemeIndex = (this.currentThemeIndex + 1) % this.themeKeys.length;
-      const key = this.themeKeys[this.currentThemeIndex];
-      this.theme = LOOM_THEMES[key];
-      this.themeNameEl.textContent = this.theme.name;
-      document.body.style.backgroundColor = this.theme.bg;
-      document.documentElement.style.setProperty('--bg-color', this.theme.bg);
-
-      // Re-tint threads to new theme palette
-      this.threads.forEach((t, i) => {
-        if (!t.isBridge) {
-          t.color = this.theme.threadColors[i % this.theme.threadColors.length];
-        } else {
-          t.color = this.theme.bridgeColor;
-        }
-      });
-    });
-
-    // Export High-Res Image
-    document.getElementById('btn-export').addEventListener('click', () => this.exportImage());
+    // Randomize / Shuffle Showcase Word
+    document.getElementById('btn-random').addEventListener('click', () => this.shufflePreset());
 
     // Clear Canvas
     document.getElementById('btn-clear').addEventListener('click', () => this.clearCanvas());
 
-    // Controls Panel Collapse
-    const panel = document.getElementById('controls-panel');
-    const toggleBtn = document.getElementById('toggle-panel-btn');
-    toggleBtn.addEventListener('click', () => {
-      panel.classList.toggle('collapsed');
-      toggleBtn.textContent = panel.classList.contains('collapsed') ? '+' : '_';
-    });
+    // Export PNG
+    document.getElementById('btn-export-png').addEventListener('click', () => this.exportPNG());
+
+    // Export SVG
+    document.getElementById('btn-export-svg').addEventListener('click', () => this.exportSVG());
 
     // Sliders
     this.sliderTension.addEventListener('input', (e) => {
       this.tension = parseFloat(e.target.value);
-      this.threads.forEach(t => {
-        t.tension = this.tension;
-      });
+      this.valTension.textContent = `${Math.round(this.tension * 100)}%`;
+      this.threads.forEach(t => { t.tension = this.tension; });
     });
 
     this.sliderGravity.addEventListener('input', (e) => {
       this.gravity = parseFloat(e.target.value);
+      this.valGravity.textContent = `${Math.round(this.gravity * 100)}`;
     });
 
     this.sliderDensity.addEventListener('input', (e) => {
       this.weaveDensity = parseInt(e.target.value, 10);
+      this.valDensity.textContent = `${this.weaveDensity}x`;
     });
 
-    this.selectPins.addEventListener('change', (e) => {
-      this.pinStyle = e.target.value;
+    // Pin Style Segmented Selector
+    const segBtns = this.pinStyleControl.querySelectorAll('.segment-btn');
+    segBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        segBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        this.pinStyle = btn.getAttribute('data-style');
+      });
     });
   }
 
@@ -249,7 +283,7 @@ class TypeLoomApp {
     const x = this.cursorX;
     const y = this.cursorY;
 
-    // Instantiate physical pins for this character
+    // Map physical pins for this character
     const pins = topo.pins.map(p => ({
       x: x + p.x * charWidth,
       y: y + p.y * charHeight
@@ -266,11 +300,10 @@ class TypeLoomApp {
     };
     this.characters.push(charRecord);
 
-    // Pick thread color
     const palette = this.theme.threadColors;
     const charColor = palette[this.characters.length % palette.length];
 
-    // 1. Weave primary strokes defined by font topology
+    // 1. Primary letter strokes
     topo.strokes.forEach((strokeIndices) => {
       for (let i = 0; i < strokeIndices.length - 1; i++) {
         const p1 = pins[strokeIndices[i]];
@@ -287,7 +320,7 @@ class TypeLoomApp {
       }
     });
 
-    // 2. Weave cross-density decorative string lattice
+    // 2. Weave cross-density decorative strings
     if (this.weaveDensity > 1 && pins.length >= 3) {
       const extraPasses = Math.min(this.weaveDensity - 1, pins.length - 1);
       for (let i = 0; i < extraPasses; i++) {
@@ -318,20 +351,13 @@ class TypeLoomApp {
       this.threads.push(bridgeThread);
     }
 
-    // Set last pin for next bridge
     this.lastPin = pins[pins.length - 1];
-
-    // Advance cursor
     this.cursorX += charWidth + this.letterSpacing;
 
-    // Acoustic sound
     window.LoomAudio.playPluck(null, 0.6);
-
-    this.updateStats();
   }
 
   snipAndSpace() {
-    // Cut the active bridge thread with scissors
     const bridgeThreads = this.threads.filter(t => t.isBridge && !t.isCut);
     if (bridgeThreads.length > 0) {
       const lastBridge = bridgeThreads[bridgeThreads.length - 1];
@@ -339,9 +365,8 @@ class TypeLoomApp {
     }
 
     this.lastPin = null;
-    this.cursorX += this.fontSize * 0.55; // Word space gap
+    this.cursorX += this.fontSize * 0.55;
     window.LoomAudio.playSnip();
-    this.updateStats();
   }
 
   newLine() {
@@ -349,8 +374,7 @@ class TypeLoomApp {
     this.cursorY += this.lineHeight;
     this.lastPin = null;
 
-    // If typing reaches bottom of canvas, gently scroll up
-    if (this.cursorY + this.lineHeight > this.height - 80) {
+    if (this.cursorY + this.lineHeight > this.height - 110) {
       const shiftY = this.lineHeight;
       this.cursorY -= shiftY;
       this.characters.forEach(c => {
@@ -370,19 +394,15 @@ class TypeLoomApp {
     if (this.characters.length === 0) return;
 
     const lastChar = this.characters.pop();
-    
-    // Trigger unraveling decay animation on this letter's threads
     this.threads.forEach(t => {
       if (t.charId === lastChar.id) {
         t.isUnraveling = true;
       }
     });
 
-    // Reset cursor to previous character position
     this.cursorX = lastChar.x;
     this.cursorY = lastChar.y;
 
-    // Reset last pin to previous character
     if (this.characters.length > 0) {
       const prev = this.characters[this.characters.length - 1];
       this.lastPin = prev.pins[prev.pins.length - 1];
@@ -394,7 +414,6 @@ class TypeLoomApp {
     }
 
     window.LoomAudio.playUnravel();
-    this.updateStats();
   }
 
   clearCanvas() {
@@ -407,7 +426,30 @@ class TypeLoomApp {
     if (this.emptyState) {
       this.emptyState.classList.remove('hidden');
     }
-    this.updateStats();
+  }
+
+  shufflePreset() {
+    this.clearCanvas();
+    const word = this.sampleWords[Math.floor(Math.random() * this.sampleWords.length)];
+    // Random theme
+    const randomTheme = this.themeKeys[Math.floor(Math.random() * this.themeKeys.length)];
+    this.applyTheme(randomTheme);
+
+    // Weave word character by character
+    let i = 0;
+    const interval = setInterval(() => {
+      if (i < word.length) {
+        const char = word[i];
+        if (char === ' ') {
+          this.snipAndSpace();
+        } else {
+          this.addCharacter(char);
+        }
+        i++;
+      } else {
+        clearInterval(interval);
+      }
+    }, 120);
   }
 
   spawnShuttle(p1, p2, color) {
@@ -418,36 +460,67 @@ class TypeLoomApp {
       targetY: p2.y,
       progress: 0,
       color: color,
-      speed: 0.15
+      speed: 0.16
     });
   }
 
-  updateStats() {
-    this.charCountEl.textContent = `${this.characters.length} character${this.characters.length === 1 ? '' : 's'} woven`;
-    const activeThreads = this.threads.filter(t => !t.isUnraveling);
-    this.threadCountEl.textContent = `${activeThreads.length} thread${activeThreads.length === 1 ? '' : 's'} active`;
-  }
-
-  exportImage() {
+  exportPNG() {
     const link = document.createElement('a');
     link.download = `type-loom-${Date.now()}.png`;
     link.href = this.canvas.toDataURL('image/png');
     link.click();
   }
 
-  // --- Rendering Loop ---
+  exportSVG() {
+    const svgWidth = this.width;
+    const svgHeight = this.height;
+
+    let svgPaths = '';
+    this.threads.forEach(t => {
+      if (t.nodes.length < 2 || t.unravelProgress >= 1) return;
+      let d = `M ${t.nodes[0].x.toFixed(1)} ${t.nodes[0].y.toFixed(1)} `;
+      for (let i = 1; i < t.nodes.length; i++) {
+        d += `L ${t.nodes[i].x.toFixed(1)} ${t.nodes[i].y.toFixed(1)} `;
+      }
+      svgPaths += `<path d="${d}" fill="none" stroke="${t.color}" stroke-width="${t.thickness}" stroke-linecap="round" />\n`;
+    });
+
+    let svgPins = '';
+    if (this.pinStyle !== 'none') {
+      this.characters.forEach(c => {
+        c.pins.forEach(p => {
+          svgPins += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3.5" fill="${this.theme.pinFill}" stroke="${this.theme.pinStroke}" stroke-width="1" />\n`;
+        });
+      });
+    }
+
+    const svgContent = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${svgWidth} ${svgHeight}" width="${svgWidth}" height="${svgHeight}">
+  <rect width="100%" height="100%" fill="${this.theme.bg}" />
+  <g id="threads">
+    ${svgPaths}
+  </g>
+  <g id="pins">
+    ${svgPins}
+  </g>
+</svg>`;
+
+    const blob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.download = `type-loom-${Date.now()}.svg`;
+    link.href = url;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // --- 60 FPS Loop ---
 
   renderLoop(time) {
-    // 1. Clear & Paint Background Texture
     this.ctx.fillStyle = this.theme.bg;
     this.ctx.fillRect(0, 0, this.width, this.height);
 
-    // Optional background tactile grid / dots
-    if (this.theme.bgPattern === 'grid') {
-      this.drawGridOverlay();
-    }
-
-    // 2. Physics Simulation Step
+    // Physics Update
     for (let i = this.threads.length - 1; i >= 0; i--) {
       const t = this.threads[i];
       t.update(this.gravity, 0.96);
@@ -456,22 +529,22 @@ class TypeLoomApp {
       }
     }
 
-    // 3. Draw All Loom Threads
+    // Draw Threads
     for (const thread of this.threads) {
       thread.draw(this.ctx, time, this.theme);
     }
 
-    // 4. Draw Flying Needle Shuttles (Sparks as threads are cast)
+    // Draw Flying Needle Shuttles
     for (let i = this.shuttles.length - 1; i >= 0; i--) {
       const s = this.shuttles[i];
       s.progress += s.speed;
-      s.x += (s.targetX - s.x) * 0.25;
-      s.y += (s.targetY - s.y) * 0.25;
+      s.x += (s.targetX - s.x) * 0.28;
+      s.y += (s.targetY - s.y) * 0.28;
 
       this.ctx.save();
       this.ctx.fillStyle = '#ffffff';
       this.ctx.shadowColor = s.color;
-      this.ctx.shadowBlur = 10;
+      this.ctx.shadowBlur = 12;
       this.ctx.beginPath();
       this.ctx.arc(s.x, s.y, 2.5, 0, Math.PI * 2);
       this.ctx.fill();
@@ -482,12 +555,12 @@ class TypeLoomApp {
       }
     }
 
-    // 5. Draw Pins / Pegs on top of threads
+    // Draw Pins
     if (this.pinStyle !== 'none') {
       this.drawPins();
     }
 
-    // 6. Draw Subtle Blinking Loom Needle / Cursor
+    // Draw Blinking Cursor
     this.drawCursor(time);
 
     requestAnimationFrame((t) => this.renderLoop(t));
@@ -498,7 +571,6 @@ class TypeLoomApp {
     for (const char of this.characters) {
       for (const pin of char.pins) {
         if (this.pinStyle === 'brass') {
-          // Brass Wood Peg with Metallic Highlight
           this.ctx.shadowColor = 'rgba(0,0,0,0.5)';
           this.ctx.shadowBlur = 4;
           this.ctx.shadowOffsetY = 2;
@@ -512,30 +584,22 @@ class TypeLoomApp {
           this.ctx.lineWidth = 1;
           this.ctx.stroke();
 
-          // Highlight glint
+          // Highlight
           this.ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
           this.ctx.beginPath();
           this.ctx.arc(pin.x - 1, pin.y - 1, 1.2, 0, Math.PI * 2);
           this.ctx.fill();
         } else if (this.pinStyle === 'pearl') {
-          // Pearl / Bead Pin
           this.ctx.fillStyle = '#ffffff';
           this.ctx.beginPath();
           this.ctx.arc(pin.x, pin.y, 4.5, 0, Math.PI * 2);
           this.ctx.fill();
         } else if (this.pinStyle === 'neon') {
-          // Glowing Neon Node
           this.ctx.fillStyle = '#ffffff';
           this.ctx.shadowColor = this.theme.pinFill;
           this.ctx.shadowBlur = 12;
           this.ctx.beginPath();
           this.ctx.arc(pin.x, pin.y, 3, 0, Math.PI * 2);
-          this.ctx.fill();
-        } else if (this.pinStyle === 'minimal') {
-          // Minimal Clean Dot
-          this.ctx.fillStyle = this.theme.textMain;
-          this.ctx.beginPath();
-          this.ctx.arc(pin.x, pin.y, 2, 0, Math.PI * 2);
           this.ctx.fill();
         }
       }
@@ -552,26 +616,6 @@ class TypeLoomApp {
     this.ctx.moveTo(this.cursorX, this.cursorY);
     this.ctx.lineTo(this.cursorX, this.cursorY + this.fontSize);
     this.ctx.stroke();
-    this.ctx.restore();
-  }
-
-  drawGridOverlay() {
-    this.ctx.save();
-    this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
-    this.ctx.lineWidth = 1;
-    const gridSize = 40;
-    for (let x = 0; x < this.width; x += gridSize) {
-      this.ctx.beginPath();
-      this.ctx.moveTo(x, 0);
-      this.ctx.lineTo(x, this.height);
-      this.ctx.stroke();
-    }
-    for (let y = 0; y < this.height; y += gridSize) {
-      this.ctx.beginPath();
-      this.ctx.moveTo(0, y);
-      this.ctx.lineTo(this.width, y);
-      this.ctx.stroke();
-    }
     this.ctx.restore();
   }
 }
