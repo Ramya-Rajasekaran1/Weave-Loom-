@@ -1,6 +1,6 @@
 /**
  * Type Loom — Studio Edition by Ramya
- * Generative Tactile Typography Engine with Horizontal Sub-Ribbon Dock.
+ * Generative Tactile Typography Engine with Multi-Line Word Wrapping & Dynamic Centering.
  */
 
 class TypeLoomStudio {
@@ -53,8 +53,8 @@ class TypeLoomStudio {
     this.textString = '';
     this.characters = [];
     this.threads = [];
-    this.fontSize = 110;
-    this.letterSpacing = 22;
+    this.baseFontSize = 104;
+    this.letterSpacing = 20;
 
     // Mouse Tracking
     this.mousePrev = { x: 0, y: 0 };
@@ -105,11 +105,11 @@ class TypeLoomStudio {
     this.ctx.scale(dpr, dpr);
 
     if (this.width < 600) {
-      this.fontSize = 68;
-      this.letterSpacing = 14;
+      this.baseFontSize = 64;
+      this.letterSpacing = 12;
     } else {
-      this.fontSize = 110;
-      this.letterSpacing = 22;
+      this.baseFontSize = 104;
+      this.letterSpacing = 20;
     }
 
     this.rebuildAllCharacters();
@@ -326,7 +326,7 @@ class TypeLoomStudio {
           } else {
             this.textString += char;
             this.rebuildAllCharacters();
-            window.LoomAudio.playPluck(null, 0.6);
+            window.LoomAudio.playPluck(null, 0.7);
           }
         }
         this.typeInput.value = '';
@@ -354,6 +354,7 @@ class TypeLoomStudio {
     this.emptyState.classList.remove('hidden');
   }
 
+  // Multi-line word wrapping with dynamic centering and generous padding
   rebuildAllCharacters() {
     if (this.textString.length === 0) {
       this.characters = [];
@@ -364,104 +365,155 @@ class TypeLoomStudio {
 
     this.emptyState.classList.add('hidden');
 
-    const charWidth = this.fontSize * 0.72;
-    const charHeight = this.fontSize;
-    const spaceWidth = this.fontSize * 0.45;
+    // Safe Canvas Margins / Padding
+    const padX = Math.max(40, this.width * 0.07);
+    const padY = Math.max(50, this.height * 0.10);
+    const maxAvailableWidth = this.width - padX * 2;
+    const maxAvailableHeight = this.height - padY * 2;
 
-    let totalWidth = 0;
-    for (let i = 0; i < this.textString.length; i++) {
-      if (this.textString[i] === ' ') totalWidth += spaceWidth;
-      else totalWidth += charWidth + this.letterSpacing;
+    // Adapt font size dynamically based on length so it fits comfortably
+    let fontSize = this.baseFontSize;
+    if (this.textString.length > 18) {
+      fontSize = Math.max(48, this.baseFontSize * 0.75);
+    } else if (this.textString.length > 10) {
+      fontSize = Math.max(58, this.baseFontSize * 0.88);
     }
-    totalWidth -= this.letterSpacing;
 
-    const startX = Math.max(30, (this.width - totalWidth) / 2);
-    const startY = (this.height - charHeight) / 2;
+    const charWidth = fontSize * 0.72;
+    const charHeight = fontSize;
+    const letterSpacing = Math.max(10, fontSize * 0.2);
+    const spaceWidth = fontSize * 0.45;
+    const lineHeight = fontSize * 1.35; // Generous vertical breathing room for dangling threads
+
+    // 1. Split text into words and calculate multi-line wrapping
+    const words = this.textString.split(' ');
+    const lines = []; // array of { words: [], width: 0 }
+    let currentLine = { words: [], width: 0 };
+
+    for (let w = 0; w < words.length; w++) {
+      const word = words[w];
+      const wordWidth = word.length > 0 ? (word.length * charWidth + (word.length - 1) * letterSpacing) : 0;
+
+      // Check if word fits on current line
+      const testWidth = currentLine.words.length === 0 
+        ? wordWidth 
+        : currentLine.width + spaceWidth + wordWidth;
+
+      if (testWidth <= maxAvailableWidth || currentLine.words.length === 0) {
+        // Fits on current line
+        currentLine.words.push(word);
+        currentLine.width = testWidth;
+      } else {
+        // Wrap to next line
+        lines.push(currentLine);
+        currentLine = { words: [word], width: wordWidth };
+      }
+    }
+    if (currentLine.words.length > 0) {
+      lines.push(currentLine);
+    }
+
+    // 2. Calculate Total Block Dimensions for Vertical Centering
+    const totalBlockHeight = lines.length * charHeight + (lines.length - 1) * (lineHeight - charHeight);
+    const blockStartY = Math.max(padY, (this.height - totalBlockHeight) / 2);
 
     this.characters = [];
     this.threads = [];
 
-    let currentX = startX;
-    let lastPin = null;
+    let globalCharIndex = 0;
 
-    for (let c = 0; c < this.textString.length; c++) {
-      const char = this.textString[c];
+    // 3. Position characters line-by-line with exact horizontal centering
+    for (let l = 0; l < lines.length; l++) {
+      const line = lines[l];
+      const lineY = blockStartY + l * lineHeight;
+      const lineStartX = Math.max(padX, (this.width - line.width) / 2);
 
-      if (char === ' ') {
-        currentX += spaceWidth;
-        lastPin = null;
-        continue;
-      }
+      let currentX = lineStartX;
+      let lastPin = null;
 
-      const topo = window.getGlyphTopology(char);
-      const charId = `c_${c}_${char}`;
+      for (let w = 0; w < line.words.length; w++) {
+        const word = line.words[w];
 
-      const pins = topo.pins.map(p => ({
-        x: currentX + p.x * charWidth,
-        y: startY + p.y * charHeight
-      }));
+        for (let c = 0; c < word.length; c++) {
+          const char = word[c];
+          const topo = window.getGlyphTopology(char);
+          const charId = `c_${l}_${w}_${c}_${char}`;
 
-      this.characters.push({
-        id: charId,
-        char: char,
-        x: currentX,
-        y: startY,
-        width: charWidth,
-        height: charHeight,
-        pins: pins
-      });
+          const pins = topo.pins.map(p => ({
+            x: currentX + p.x * charWidth,
+            y: lineY + p.y * charHeight
+          }));
 
-      const palette = this.theme.threadColors;
-      const charColor = palette[c % palette.length];
+          this.characters.push({
+            id: charId,
+            char: char,
+            x: currentX,
+            y: lineY,
+            width: charWidth,
+            height: charHeight,
+            pins: pins
+          });
 
-      // Primary strokes
-      topo.strokes.forEach((strokeIndices) => {
-        for (let i = 0; i < strokeIndices.length - 1; i++) {
-          const p1 = pins[strokeIndices[i]];
-          const p2 = pins[strokeIndices[i + 1]];
-          if (p1 && p2) {
-            const thread = new LoomThread(p1, p2, {
-              color: charColor,
-              thickness: this.threadThickness,
-              tension: this.tension,
-              charId: charId
-            });
-            this.threads.push(thread);
+          const palette = this.theme.threadColors;
+          const charColor = palette[globalCharIndex % palette.length];
+
+          // Primary glyph strokes
+          topo.strokes.forEach((strokeIndices) => {
+            for (let i = 0; i < strokeIndices.length - 1; i++) {
+              const p1 = pins[strokeIndices[i]];
+              const p2 = pins[strokeIndices[i + 1]];
+              if (p1 && p2) {
+                const thread = new LoomThread(p1, p2, {
+                  color: charColor,
+                  thickness: this.threadThickness,
+                  tension: this.tension,
+                  charId: charId
+                });
+                this.threads.push(thread);
+              }
+            }
+          });
+
+          // Cross-weave lattice
+          if (pins.length >= 3) {
+            for (let i = 0; i < 2; i++) {
+              const idxA = i % pins.length;
+              const idxB = (i + Math.floor(pins.length / 2)) % pins.length;
+              if (idxA !== idxB) {
+                const thread = new LoomThread(pins[idxA], pins[idxB], {
+                  color: palette[(globalCharIndex + i + 1) % palette.length],
+                  thickness: this.threadThickness * 0.8,
+                  tension: this.tension * 0.9,
+                  charId: charId
+                });
+                this.threads.push(thread);
+              }
+            }
           }
-        }
-      });
 
-      // Cross-weave lattice
-      if (pins.length >= 3) {
-        for (let i = 0; i < 2; i++) {
-          const idxA = i % pins.length;
-          const idxB = (i + Math.floor(pins.length / 2)) % pins.length;
-          if (idxA !== idxB) {
-            const thread = new LoomThread(pins[idxA], pins[idxB], {
-              color: palette[(c + i + 1) % palette.length],
-              thickness: this.threadThickness * 0.8,
-              tension: this.tension * 0.9,
-              charId: charId
+          // Inter-letter bridge within the same word
+          if (lastPin && pins.length > 0) {
+            const bridgeThread = new LoomThread(lastPin, pins[0], {
+              color: this.theme.bridgeColor,
+              thickness: this.threadThickness * 0.9,
+              tension: this.tension * 0.8,
+              charId: charId,
+              isBridge: true
             });
-            this.threads.push(thread);
+            this.threads.push(bridgeThread);
           }
+
+          lastPin = pins[pins.length - 1];
+          currentX += charWidth + letterSpacing;
+          globalCharIndex++;
+        }
+
+        // Add space gap between words (and reset lastPin so threads don't jump across space)
+        if (w < line.words.length - 1) {
+          currentX += spaceWidth - letterSpacing;
+          lastPin = null;
         }
       }
-
-      // Inter-letter bridge
-      if (lastPin && pins.length > 0) {
-        const bridgeThread = new LoomThread(lastPin, pins[0], {
-          color: this.theme.bridgeColor,
-          thickness: this.threadThickness * 0.9,
-          tension: this.tension * 0.8,
-          charId: charId,
-          isBridge: true
-        });
-        this.threads.push(bridgeThread);
-      }
-
-      lastPin = pins[pins.length - 1];
-      currentX += charWidth + this.letterSpacing;
     }
   }
 
