@@ -68,17 +68,17 @@ const LOOM_THEMES = {
     previewDots: ['#80FFDB', '#48CAE4', '#5E60CE'],
     glow: true
   },
-  'monochrome': {
-    id: 'monochrome',
-    name: 'Monochrome Luxe',
-    bg: '#0a0a0a',
-    artboardBg: '#141414',
-    textColor: '#f5f5f5',
-    threadColors: ['#FFFFFF', '#D1D5DB', '#9CA3AF', '#E5E7EB', '#6B7280'],
-    bridgeColor: '#FFFFFF',
-    pinFill: '#FFFFFF',
-    pinStroke: '#4B5563',
-    previewDots: ['#FFFFFF', '#9CA3AF', '#4B5563'],
+  'aurora': {
+    id: 'aurora',
+    name: 'Aurora Prism',
+    bg: '#050814',
+    artboardBg: '#090d20',
+    textColor: '#ffffff',
+    threadColors: ['#00FFA3', '#00D8F6', '#7000FF', '#FF007A', '#FFE600'],
+    bridgeColor: '#00FFA3',
+    pinFill: '#00FFA3',
+    pinStroke: '#ffffff',
+    previewDots: ['#00FFA3', '#7000FF', '#FF007A'],
     glow: true
   }
 };

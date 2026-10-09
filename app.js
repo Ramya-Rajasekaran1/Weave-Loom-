@@ -666,29 +666,30 @@ class TypeLoomStudio {
           });
         });
       }
-    } else if (this.currentEffect === 'reach') {
-      const targetX = this.mouseCurr.x || this.width * 0.5;
-      const targetY = this.mouseCurr.y || this.height * 0.5;
-
+    } else if (this.currentEffect === 'zerog') {
+      // 3. Zero-G Drift: Weightless strings float and undulate with buoyant micro-turbulence
       this.threads.forEach(t => {
-        t.nodes.forEach(n => {
+        t.nodes.forEach((n, idx) => {
           if (!n.isPinned) {
-            const dx = targetX - n.x;
-            const dy = targetY - n.y;
-            const dist = Math.hypot(dx, dy);
-            if (dist < 320) {
-              const pull = (1 - dist / 320) * 0.45;
-              n.x += (dx / dist) * pull;
-              n.y += (dy / dist) * pull;
-            }
+            const floatOffset = Math.sin(time * 0.003 + idx * 0.6) * 1.5;
+            const floatDrift = Math.cos(time * 0.002 + idx * 0.4) * 1.0;
+            n.y -= 0.32 + floatOffset * 0.3;
+            n.x += floatDrift * 0.25;
           }
         });
       });
-    } else if (this.currentEffect === 'resonate') {
-      if (Math.random() < 0.045 && this.threads.length > 0) {
-        const randomThread = this.threads[Math.floor(Math.random() * this.threads.length)];
-        randomThread.pluck(15);
-      }
+    } else if (this.currentEffect === 'shimmer') {
+      // 4. Prism Shimmer: Travelling iridescent light pulse sweeping across threads
+      const wavePos = (time * 0.18) % (this.width + 300);
+      this.threads.forEach(t => {
+        t.nodes.forEach(n => {
+          const distToWave = Math.abs(n.x - wavePos);
+          if (distToWave < 100 && !n.isPinned) {
+            const shimmerPower = (1 - distToWave / 100) * 2.2;
+            n.y += (Math.random() - 0.5) * shimmerPower;
+          }
+        });
+      });
     } else if (this.currentEffect === 'visitor') {
       this.visitor.angle += 0.03;
       this.visitor.x = this.width * 0.5 + Math.sin(this.visitor.angle) * (this.width * 0.35);
