@@ -108,6 +108,29 @@
             <span class="r-title">Luminous Needle</span>
           </button>
         </div>
+        <!-- Pin Styles Sub-Bar Row -->
+        <div class="sub-ribbon-content" id="sub-ribbon-pins">
+          <button class="ribbon-opt active" data-pin-style="pearls">
+            <span class="r-badge">01</span>
+            <span class="r-title">Glass Pearls</span>
+          </button>
+          <button class="ribbon-opt" data-pin-style="brass">
+            <span class="r-badge">02</span>
+            <span class="r-title">Brass Rivets</span>
+          </button>
+          <button class="ribbon-opt" data-pin-style="neon">
+            <span class="r-badge">03</span>
+            <span class="r-title">Neon Orbs</span>
+          </button>
+          <button class="ribbon-opt" data-pin-style="crosshairs">
+            <span class="r-badge">04</span>
+            <span class="r-title">Crosshairs</span>
+          </button>
+          <button class="ribbon-opt" data-pin-style="none">
+            <span class="r-badge">05</span>
+            <span class="r-title">Hidden</span>
+          </button>
+        </div>
       </div>
 
       <!-- Main Figma-Inspired Bottom Centered Glass Toolbar (Strictly single horizontal line) -->
@@ -134,20 +157,21 @@
 
         <div class="dock-divider"></div>
 
-        <!-- 3. Thread Stroke Thickness Slider -->
+        <!-- 3. Pin Style Switcher Trigger -->
+        <button class="dock-item" id="pin-menu-trigger" title="Choose Pin Style">
+          <span class="dock-label">Pins</span>
+          <span class="active-effect-name" id="active-pin-name">Pearls</span>
+          <span class="chevron" id="pin-chevron">▾</span>
+        </button>
+
+        <div class="dock-divider"></div>
+
+        <!-- 4. Thread Stroke Thickness Slider -->
         <div class="dock-item stroke-control" title="Adjust Thread Thickness">
           <span class="dock-label">Stroke</span>
           <input type="range" id="slider-stroke" min="1" max="6" step="0.5" value="2.5" aria-label="Stroke Thickness" />
           <span id="val-stroke" class="dock-val">2.5px</span>
         </div>
-
-        <div class="dock-divider"></div>
-
-        <!-- 4. Pin / Bubble Toggle Button -->
-        <button id="btn-toggle-pins" class="dock-btn" title="Toggle Pin Pegs" aria-label="Toggle Pins">
-          <span class="status-dot active" id="pin-status-dot"></span>
-          <span id="pin-status-text" class="btn-text-nowrap">Pins: On</span>
-        </button>
 
         <div class="dock-divider"></div>
 

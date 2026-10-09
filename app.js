@@ -15,18 +15,18 @@ class TypeLoomStudio {
     // Dock & Sub-Ribbon Elements
     this.paletteMenuTrigger = document.getElementById('palette-menu-trigger');
     this.motionMenuTrigger = document.getElementById('motion-menu-trigger');
+    this.pinMenuTrigger = document.getElementById('pin-menu-trigger');
     this.dockSubRibbon = document.getElementById('dock-sub-ribbon');
     this.subRibbonPalettes = document.getElementById('sub-ribbon-palettes');
     this.subRibbonEffects = document.getElementById('sub-ribbon-effects');
+    this.subRibbonPins = document.getElementById('sub-ribbon-pins');
     this.currentPalettePreview = document.getElementById('current-palette-preview');
     this.activeEffectNameEl = document.getElementById('active-effect-name');
+    this.activePinNameEl = document.getElementById('active-pin-name');
 
     // Controls
     this.sliderStroke = document.getElementById('slider-stroke');
     this.valStroke = document.getElementById('val-stroke');
-    this.btnTogglePins = document.getElementById('btn-toggle-pins');
-    this.pinStatusDot = document.getElementById('pin-status-dot');
-    this.pinStatusText = document.getElementById('pin-status-text');
     this.btnToggleSound = document.getElementById('btn-toggle-sound');
     this.soundStatusDot = document.getElementById('sound-status-dot');
     this.soundStatusText = document.getElementById('sound-status-text');
@@ -39,15 +39,20 @@ class TypeLoomStudio {
     // Sub-Ribbon Active State
     this.activeSubMenu = null;
 
-    // Effect State: 'breathe' | 'gust' | 'zerog' | 'shimmer' | 'visitor'
+    // Effect State: 'breathe' | 'gust' | 'shuttles' | 'plasma' | 'visitor'
     this.currentEffect = 'breathe';
     this.effectTime = 0;
 
     // Pin & Thread State
     this.showPins = true;
+    this.pinStyle = 'pearls'; // 'pearls' | 'brass' | 'neon' | 'crosshairs' | 'none'
     this.threadThickness = 2.6;
     this.tension = 0.95;
     this.gravity = 0.08;
+
+    // Elastic Dragging Pin State
+    this.draggedPin = null;
+    this.lastStretchTick = 0;
 
     // Typography State
     this.textString = '';
@@ -58,6 +63,16 @@ class TypeLoomStudio {
     // Mouse Tracking
     this.mousePrev = { x: 0, y: 0 };
     this.mouseCurr = { x: 0, y: 0 };
+
+    // Ambient Silk Dust Motes (Floating micro-particles like Type Garden)
+    this.silkMotes = Array.from({ length: 18 }, () => ({
+      x: Math.random() * 800,
+      y: Math.random() * 600,
+      vx: (Math.random() - 0.5) * 0.4,
+      vy: (Math.random() - 0.5) * 0.3 - 0.1,
+      radius: Math.random() * 1.5 + 0.8,
+      alpha: Math.random() * 0.4 + 0.2
+    }));
 
     // Kinetic Entity States
     this.visitor = { x: 200, y: 200, angle: 0, trail: [] };
@@ -176,6 +191,16 @@ class TypeLoomStudio {
       }
     });
 
+    // 3. Pin Style Trigger
+    this.pinMenuTrigger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (this.activeSubMenu === 'pins') {
+        this.closeSubRibbon();
+      } else {
+        this.openSubRibbon('pins');
+      }
+    });
+
     // Effects Option Buttons inside sub-ribbon
     const effectBtns = this.subRibbonEffects.querySelectorAll('.ribbon-opt');
     effectBtns.forEach(btn => {
@@ -187,22 +212,42 @@ class TypeLoomStudio {
         this.effectTime = 0;
       });
     });
+
+    // Pin Style Option Buttons inside sub-ribbon
+    const pinBtns = this.subRibbonPins.querySelectorAll('.ribbon-opt');
+    pinBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        pinBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        this.pinStyle = btn.getAttribute('data-pin-style');
+        this.activePinNameEl.textContent = btn.querySelector('.r-title').textContent;
+        window.LoomAudio.playPluck(659.25, 0.75, true);
+      });
+    });
   }
 
   openSubRibbon(menuType) {
     this.activeSubMenu = menuType;
     this.dockSubRibbon.classList.add('open');
 
+    // Reset all trigger highlights
+    this.paletteMenuTrigger.classList.remove('active');
+    this.motionMenuTrigger.classList.remove('active');
+    this.pinMenuTrigger.classList.remove('active');
+
+    this.subRibbonPalettes.classList.remove('active');
+    this.subRibbonEffects.classList.remove('active');
+    this.subRibbonPins.classList.remove('active');
+
     if (menuType === 'palettes') {
       this.paletteMenuTrigger.classList.add('active');
-      this.motionMenuTrigger.classList.remove('active');
       this.subRibbonPalettes.classList.add('active');
-      this.subRibbonEffects.classList.remove('active');
     } else if (menuType === 'effects') {
       this.motionMenuTrigger.classList.add('active');
-      this.paletteMenuTrigger.classList.remove('active');
       this.subRibbonEffects.classList.add('active');
-      this.subRibbonPalettes.classList.remove('active');
+    } else if (menuType === 'pins') {
+      this.pinMenuTrigger.classList.add('active');
+      this.subRibbonPins.classList.add('active');
     }
   }
 
@@ -211,8 +256,10 @@ class TypeLoomStudio {
     this.dockSubRibbon.classList.remove('open');
     this.paletteMenuTrigger.classList.remove('active');
     this.motionMenuTrigger.classList.remove('active');
+    this.pinMenuTrigger.classList.remove('active');
     this.subRibbonPalettes.classList.remove('active');
     this.subRibbonEffects.classList.remove('active');
+    this.subRibbonPins.classList.remove('active');
   }
 
   applyTheme(themeKey) {
@@ -518,14 +565,23 @@ class TypeLoomStudio {
 
         for (let c = 0; c < word.length; c++) {
           const char = word[c];
-          const charW = getCharWidth(char);
+          const charW = getCharWidth(char, fSize);
           const topo = window.getGlyphTopology(char);
           const charId = `c_${l}_${w}_${c}_${char}`;
 
-          const pins = topo.pins.map(p => ({
-            x: currentX + p.x * charW,
-            y: lineY + p.y * charHeight
-          }));
+          const pins = topo.pins.map(p => {
+            const px = currentX + p.x * charW;
+            const py = lineY + p.y * charH;
+            return {
+              x: px,
+              y: py,
+              origX: px,
+              origY: py,
+              vx: 0,
+              vy: 0,
+              isDragging: false
+            };
+          });
 
           this.characters.push({
             id: charId,
@@ -533,7 +589,7 @@ class TypeLoomStudio {
             x: currentX,
             y: lineY,
             width: charW,
-            height: charHeight,
+            height: charH,
             pins: pins
           });
 
@@ -557,27 +613,69 @@ class TypeLoomStudio {
             }
           });
 
-          currentX += charW + letterSpacing;
+          currentX += charW + lSpacing;
           globalCharIndex++;
         }
 
         // Space gap between words
         if (w < lineObj.words.length - 1) {
-          currentX += spaceWidth;
+          currentX += spWidth;
         }
       }
     }
   }
 
-  // --- Mouse Pluck Interaction ---
+  // --- Mouse Pluck & Draggable Pin Interaction ---
   setupMouseEvents() {
-    const onMove = (clientX, clientY) => {
+    const getPos = (clientX, clientY) => {
       const rect = this.canvas.getBoundingClientRect();
-      const x = clientX - rect.left;
-      const y = clientY - rect.top;
+      return {
+        x: clientX - rect.left,
+        y: clientY - rect.top
+      };
+    };
 
+    const onDown = (clientX, clientY) => {
+      window.LoomAudio.wake();
+      const pos = getPos(clientX, clientY);
+
+      // Check if grabbing any pin within 22px
+      let foundPin = null;
+      for (const char of this.characters) {
+        for (const pin of char.pins) {
+          if (Math.hypot(pin.x - pos.x, pin.y - pos.y) < 22) {
+            foundPin = pin;
+            break;
+          }
+        }
+        if (foundPin) break;
+      }
+
+      if (foundPin) {
+        this.draggedPin = foundPin;
+        foundPin.isDragging = true;
+        window.LoomAudio.playPluck(659.25, 0.85, true);
+        this.lastStretchTick = performance.now();
+      }
+    };
+
+    const onMove = (clientX, clientY) => {
+      const pos = getPos(clientX, clientY);
       this.mousePrev = { ...this.mouseCurr };
-      this.mouseCurr = { x, y };
+      this.mouseCurr = pos;
+
+      if (this.draggedPin) {
+        this.draggedPin.x = pos.x;
+        this.draggedPin.y = pos.y;
+
+        const stretch = Math.hypot(pos.x - this.draggedPin.origX, pos.y - this.draggedPin.origY);
+        const now = performance.now();
+        if (now - this.lastStretchTick > 36 && stretch > 6) {
+          this.lastStretchTick = now;
+          window.LoomAudio.playStretchTick(380 + Math.min(stretch * 3.5, 750));
+        }
+        return;
+      }
 
       let pluckedAny = false;
       for (const thread of this.threads) {
@@ -588,16 +686,39 @@ class TypeLoomStudio {
 
       if (pluckedAny) {
         const speed = Math.hypot(this.mouseCurr.x - this.mousePrev.x, this.mouseCurr.y - this.mousePrev.y);
-        window.LoomAudio.playPluck(null, Math.min(speed / 12, 0.95));
+        window.LoomAudio.playPluck(null, Math.min(speed / 10, 0.95));
       }
     };
 
-    window.addEventListener('mousemove', (e) => onMove(e.clientX, e.clientY));
-    window.addEventListener('touchmove', (e) => {
-      if (e.touches.length > 0) {
-        onMove(e.touches[0].clientX, e.touches[0].clientY);
+    const onUp = () => {
+      if (this.draggedPin) {
+        const stretch = Math.hypot(this.draggedPin.x - this.draggedPin.origX, this.draggedPin.y - this.draggedPin.origY);
+        this.draggedPin.isDragging = false;
+
+        if (stretch > 12) {
+          // Pluck all attached threads with elastic spring energy
+          this.threads.forEach(t => {
+            if (t.p1 === this.draggedPin || t.p2 === this.draggedPin) {
+              t.pluck(Math.min(stretch * 0.45, 24));
+            }
+          });
+          window.LoomAudio.playChord(523.25 + Math.min(stretch * 1.6, 400), Math.min(5, Math.floor(stretch / 28) + 3));
+        }
+        this.draggedPin = null;
       }
+    };
+
+    this.canvas.addEventListener('mousedown', (e) => onDown(e.clientX, e.clientY));
+    window.addEventListener('mousemove', (e) => onMove(e.clientX, e.clientY));
+    window.addEventListener('mouseup', onUp);
+
+    this.canvas.addEventListener('touchstart', (e) => {
+      if (e.touches.length > 0) onDown(e.touches[0].clientX, e.touches[0].clientY);
     }, { passive: true });
+    window.addEventListener('touchmove', (e) => {
+      if (e.touches.length > 0) onMove(e.touches[0].clientX, e.touches[0].clientY);
+    }, { passive: true });
+    window.addEventListener('touchend', onUp);
   }
 
   // --- Exporting ---
@@ -639,10 +760,10 @@ class TypeLoomStudio {
     });
 
     let svgPins = '';
-    if (this.showPins) {
+    if (this.pinStyle !== 'none') {
       this.characters.forEach(c => {
         c.pins.forEach(p => {
-          svgPins += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3.5" fill="${this.theme.pinFill}" stroke="${this.theme.pinStroke}" stroke-width="1" />\n`;
+          svgPins += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4" fill="${this.theme.pinFill}" stroke="${this.theme.pinStroke}" stroke-width="1.2" />\n`;
         });
       });
     }
@@ -668,14 +789,50 @@ class TypeLoomStudio {
   renderLoop(time) {
     this.effectTime += 0.016;
 
-    // 1. Clear Canvas with Theme Artboard Color
+    // 1. Clear Canvas & Draw Tactile Micro-Linen Background
     this.ctx.fillStyle = this.theme.artboardBg;
     this.ctx.fillRect(0, 0, this.width, this.height);
 
-    // 2. Apply Kinetic Effects
+    // Subtle Canvas Texture Vignette (Type Garden tactile feel)
+    const vignette = this.ctx.createRadialGradient(
+      this.width * 0.5, this.height * 0.5, this.width * 0.2,
+      this.width * 0.5, this.height * 0.5, this.width * 0.75
+    );
+    vignette.addColorStop(0, 'rgba(255, 255, 255, 0.02)');
+    vignette.addColorStop(1, 'rgba(0, 0, 0, 0.35)');
+    this.ctx.fillStyle = vignette;
+    this.ctx.fillRect(0, 0, this.width, this.height);
+
+    // 2. Draw Ambient Floating Silk Motes
+    this.drawSilkMotes();
+
+    // 3. Update Spring Return Physics on Pins
+    for (const char of this.characters) {
+      for (const pin of char.pins) {
+        if (!pin.isDragging) {
+          const dx = pin.origX - pin.x;
+          const dy = pin.origY - pin.y;
+          if (Math.hypot(dx, dy) > 0.2 || Math.hypot(pin.vx, pin.vy) > 0.2) {
+            const ax = dx * 0.24;
+            const ay = dy * 0.24;
+            pin.vx = (pin.vx + ax) * 0.74;
+            pin.vy = (pin.vy + ay) * 0.74;
+            pin.x += pin.vx;
+            pin.y += pin.vy;
+          } else {
+            pin.x = pin.origX;
+            pin.y = pin.origY;
+            pin.vx = 0;
+            pin.vy = 0;
+          }
+        }
+      }
+    }
+
+    // 4. Apply Kinetic Effects
     this.applyKineticEffects(time);
 
-    // 3. Update Physics
+    // 5. Update Physics
     for (let i = this.threads.length - 1; i >= 0; i--) {
       const t = this.threads[i];
       t.update(this.gravity, 0.96);
@@ -684,17 +841,35 @@ class TypeLoomStudio {
       }
     }
 
-    // 4. Draw Threads
+    // 6. Draw Threads
     for (const thread of this.threads) {
       thread.draw(this.ctx, time, this.theme);
     }
 
-    // 5. Draw Pins (if enabled)
-    if (this.showPins) {
+    // 7. Draw Pins (Option C Styles)
+    if (this.pinStyle !== 'none') {
       this.drawPins();
     }
 
     requestAnimationFrame((t) => this.renderLoop(t));
+  }
+
+  drawSilkMotes() {
+    this.ctx.save();
+    this.silkMotes.forEach(m => {
+      m.x += m.vx;
+      m.y += m.vy;
+      if (m.x < 0) m.x = this.width;
+      if (m.x > this.width) m.x = 0;
+      if (m.y < 0) m.y = this.height;
+      if (m.y > this.height) m.y = 0;
+
+      this.ctx.fillStyle = `rgba(255, 255, 255, ${m.alpha})`;
+      this.ctx.beginPath();
+      this.ctx.arc(m.x, m.y, m.radius, 0, Math.PI * 2);
+      this.ctx.fill();
+    });
+    this.ctx.restore();
   }
 
   applyKineticEffects(time) {
@@ -719,24 +894,20 @@ class TypeLoomStudio {
         });
       }
     } else if (this.currentEffect === 'shuttles') {
-      // 03. Twin Shuttles: Two radiant glowing kinetic shuttles criss-crossing and plucking threads
+      // 03. Twin Shuttles
       const s1 = this.shuttles[0];
       const s2 = this.shuttles[1];
 
-      // Update positions along dynamic intertwined Lissajous orbits
       s1.x = this.width * 0.5 + Math.sin(time * 0.0018) * (this.width * 0.42);
       s1.y = this.height * 0.5 + Math.sin(time * 0.0036) * (this.height * 0.3);
 
       s2.x = this.width * 0.5 + Math.cos(time * 0.0015 + 1.2) * (this.width * 0.4);
       s2.y = this.height * 0.5 + Math.sin(time * 0.003 + 0.8) * (this.height * 0.32);
 
-      // Render both shuttles with glowing trails and halos
       this.shuttles.forEach((s) => {
-        // Track trail
         s.trail.push({ x: s.x, y: s.y });
         if (s.trail.length > 10) s.trail.shift();
 
-        // Draw luminous trail
         this.ctx.save();
         for (let i = 0; i < s.trail.length - 1; i++) {
           const pA = s.trail[i];
@@ -754,7 +925,6 @@ class TypeLoomStudio {
         }
         this.ctx.restore();
 
-        // Draw radiant shuttle orb
         this.ctx.save();
         this.ctx.shadowColor = s.glow;
         this.ctx.shadowBlur = 22;
@@ -763,14 +933,12 @@ class TypeLoomStudio {
         this.ctx.arc(s.x, s.y, s.radius + 1.5, 0, Math.PI * 2);
         this.ctx.fill();
 
-        // White hot center
         this.ctx.fillStyle = '#FFFFFF';
         this.ctx.beginPath();
         this.ctx.arc(s.x, s.y, s.radius * 0.45, 0, Math.PI * 2);
         this.ctx.fill();
         this.ctx.restore();
 
-        // Pluck nearby strings
         let hitString = false;
         this.threads.forEach(t => {
           t.nodes.forEach(n => {
@@ -781,14 +949,13 @@ class TypeLoomStudio {
           });
         });
         if (hitString) {
-          window.LoomAudio.playPluck(null, 0.65);
+          window.LoomAudio.playPluck(null, 0.7);
         }
       });
     } else if (this.currentEffect === 'plasma') {
-      // 04. Plasma Surge: Sweeping high-voltage neon plasma laser with electric lightning arcs
+      // 04. Plasma Surge
       const beamX = ((time * 0.18) % (this.width + 300)) - 150;
 
-      // 1. Draw glowing vertical plasma wavefront
       this.ctx.save();
       const grad = this.ctx.createLinearGradient(beamX - 35, 0, beamX + 35, 0);
       grad.addColorStop(0, 'rgba(162, 89, 255, 0)');
@@ -799,7 +966,6 @@ class TypeLoomStudio {
       this.ctx.fillStyle = grad;
       this.ctx.fillRect(beamX - 30, 0, 60, this.height);
 
-      // Core electric laser beam
       this.ctx.strokeStyle = '#FFFFFF';
       this.ctx.shadowColor = '#00F0FF';
       this.ctx.shadowBlur = 24;
@@ -810,7 +976,6 @@ class TypeLoomStudio {
       this.ctx.stroke();
       this.ctx.restore();
 
-      // 2. Find pins near the plasma beam & draw electric lightning arcs
       const activePins = [];
       this.characters.forEach(c => {
         c.pins.forEach(p => {
@@ -839,7 +1004,6 @@ class TypeLoomStudio {
         this.ctx.restore();
       }
 
-      // 3. Pluck intersected strings
       let plasmaHit = false;
       this.threads.forEach(t => {
         t.nodes.forEach(n => {
@@ -851,19 +1015,17 @@ class TypeLoomStudio {
         });
       });
       if (plasmaHit) {
-        window.LoomAudio.playPluck(null, 0.7);
+        window.LoomAudio.playPluck(null, 0.75);
       }
     } else if (this.currentEffect === 'visitor') {
-      // 05. Luminous Needle: Wandering illuminated needle with golden stitch trail
+      // 05. Luminous Needle
       this.visitor.angle += 0.025;
       this.visitor.x = this.width * 0.5 + Math.sin(this.visitor.angle) * (this.width * 0.38);
       this.visitor.y = this.height * 0.5 + Math.sin(this.visitor.angle * 2.2) * (this.height * 0.28);
 
-      // Trail
       this.visitor.trail.push({ x: this.visitor.x, y: this.visitor.y });
       if (this.visitor.trail.length > 14) this.visitor.trail.shift();
 
-      // Draw trailing golden silk thread
       this.ctx.save();
       for (let i = 0; i < this.visitor.trail.length - 1; i++) {
         const p1 = this.visitor.trail[i];
@@ -881,7 +1043,6 @@ class TypeLoomStudio {
       }
       this.ctx.restore();
 
-      // Draw Luminous Needle Body & Glowing Beacon
       this.ctx.save();
       this.ctx.shadowColor = '#1ABCFE';
       this.ctx.shadowBlur = 24;
@@ -890,13 +1051,11 @@ class TypeLoomStudio {
       this.ctx.arc(this.visitor.x, this.visitor.y, 5.5, 0, Math.PI * 2);
       this.ctx.fill();
 
-      // Radiant Core
       this.ctx.fillStyle = '#FFFFFF';
       this.ctx.beginPath();
       this.ctx.arc(this.visitor.x, this.visitor.y, 2.5, 0, Math.PI * 2);
       this.ctx.fill();
 
-      // Outer Pulse Ring
       const pulseR = 8 + Math.sin(time * 0.008) * 3;
       this.ctx.strokeStyle = 'rgba(26, 188, 254, 0.6)';
       this.ctx.lineWidth = 1.5;
@@ -915,34 +1074,118 @@ class TypeLoomStudio {
         });
       });
       if (needlePluck) {
-        window.LoomAudio.playPluck(null, 0.65);
+        window.LoomAudio.playPluck(null, 0.7);
       }
     }
   }
 
+  // Option C: Interactive Pin Style Renderers
   drawPins() {
     this.ctx.save();
+
     for (const char of this.characters) {
       for (const pin of char.pins) {
-        this.ctx.shadowColor = 'rgba(0,0,0,0.5)';
-        this.ctx.shadowBlur = 4;
-        this.ctx.shadowOffsetY = 2;
+        const isDragged = pin.isDragging;
 
-        this.ctx.fillStyle = this.theme.pinFill;
-        this.ctx.beginPath();
-        this.ctx.arc(pin.x, pin.y, 4, 0, Math.PI * 2);
-        this.ctx.fill();
+        if (this.pinStyle === 'pearls') {
+          // 1. Glass Pearls: Iridescent shimmering pearl with specular glint
+          this.ctx.save();
+          this.ctx.shadowColor = 'rgba(0,0,0,0.55)';
+          this.ctx.shadowBlur = isDragged ? 14 : 5;
+          this.ctx.shadowOffsetY = isDragged ? 6 : 2;
 
-        this.ctx.strokeStyle = this.theme.pinStroke;
-        this.ctx.lineWidth = 1;
-        this.ctx.stroke();
+          const rad = isDragged ? 6.5 : 4.5;
+          const grad = this.ctx.createRadialGradient(
+            pin.x - rad * 0.35, pin.y - rad * 0.35, rad * 0.1,
+            pin.x, pin.y, rad
+          );
+          grad.addColorStop(0, '#FFFFFF');
+          grad.addColorStop(0.45, '#E0E7FF');
+          grad.addColorStop(1, '#818CF8');
 
-        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-        this.ctx.beginPath();
-        this.ctx.arc(pin.x - 1, pin.y - 1, 1.2, 0, Math.PI * 2);
-        this.ctx.fill();
+          this.ctx.fillStyle = grad;
+          this.ctx.beginPath();
+          this.ctx.arc(pin.x, pin.y, rad, 0, Math.PI * 2);
+          this.ctx.fill();
+
+          this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+          this.ctx.lineWidth = 0.8;
+          this.ctx.stroke();
+
+          // Glint
+          this.ctx.fillStyle = '#FFFFFF';
+          this.ctx.beginPath();
+          this.ctx.arc(pin.x - rad * 0.35, pin.y - rad * 0.35, rad * 0.28, 0, Math.PI * 2);
+          this.ctx.fill();
+          this.ctx.restore();
+
+        } else if (this.pinStyle === 'brass') {
+          // 2. Brass Rivets: Metallic gold studio rivet with bevel & dimple
+          this.ctx.save();
+          this.ctx.shadowColor = 'rgba(0,0,0,0.6)';
+          this.ctx.shadowBlur = 5;
+          this.ctx.shadowOffsetY = 2;
+
+          const rad = isDragged ? 6.0 : 4.5;
+          const grad = this.ctx.createRadialGradient(
+            pin.x - rad * 0.3, pin.y - rad * 0.3, rad * 0.1,
+            pin.x, pin.y, rad
+          );
+          grad.addColorStop(0, '#FFE082');
+          grad.addColorStop(0.6, '#B8860B');
+          grad.addColorStop(1, '#4E342E');
+
+          this.ctx.fillStyle = grad;
+          this.ctx.beginPath();
+          this.ctx.arc(pin.x, pin.y, rad, 0, Math.PI * 2);
+          this.ctx.fill();
+
+          // Center puncture dimple
+          this.ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+          this.ctx.beginPath();
+          this.ctx.arc(pin.x, pin.y, rad * 0.3, 0, Math.PI * 2);
+          this.ctx.fill();
+          this.ctx.restore();
+
+        } else if (this.pinStyle === 'neon') {
+          // 3. Neon Orbs: Glowing neon beacon
+          this.ctx.save();
+          this.ctx.shadowColor = '#00F0FF';
+          this.ctx.shadowBlur = isDragged ? 20 : 12;
+          this.ctx.fillStyle = '#00F0FF';
+          this.ctx.beginPath();
+          this.ctx.arc(pin.x, pin.y, isDragged ? 5.5 : 4.0, 0, Math.PI * 2);
+          this.ctx.fill();
+
+          this.ctx.fillStyle = '#FFFFFF';
+          this.ctx.beginPath();
+          this.ctx.arc(pin.x, pin.y, 2, 0, Math.PI * 2);
+          this.ctx.fill();
+          this.ctx.restore();
+
+        } else if (this.pinStyle === 'crosshairs') {
+          // 4. Architectural Crosshairs: Minimalist technical drafting tick
+          this.ctx.save();
+          this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+          this.ctx.lineWidth = 1.2;
+          const sz = isDragged ? 7 : 5;
+
+          this.ctx.beginPath();
+          this.ctx.moveTo(pin.x - sz, pin.y);
+          this.ctx.lineTo(pin.x + sz, pin.y);
+          this.ctx.moveTo(pin.x, pin.y - sz);
+          this.ctx.lineTo(pin.x, pin.y + sz);
+          this.ctx.stroke();
+
+          this.ctx.fillStyle = '#FFFFFF';
+          this.ctx.beginPath();
+          this.ctx.arc(pin.x, pin.y, 1.5, 0, Math.PI * 2);
+          this.ctx.fill();
+          this.ctx.restore();
+        }
       }
     }
+
     this.ctx.restore();
   }
 }

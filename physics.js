@@ -27,6 +27,8 @@ class VerletNode {
 
 class LoomThread {
   constructor(p1, p2, options = {}) {
+    this.p1 = p1;
+    this.p2 = p2;
     this.color = options.color || '#e6533c';
     this.thickness = options.thickness || 1.8;
     this.segments = options.segments || 6;
@@ -60,6 +62,18 @@ class LoomThread {
   }
 
   update(gravity, friction, iterations = 3) {
+    // Dynamic endpoint tracking when dragging pins
+    if (this.nodes.length >= 2) {
+      if (this.p1) {
+        this.nodes[0].x = this.p1.x;
+        this.nodes[0].y = this.p1.y;
+      }
+      if (this.p2) {
+        this.nodes[this.nodes.length - 1].x = this.p2.x;
+        this.nodes[this.nodes.length - 1].y = this.p2.y;
+      }
+    }
+
     // Needle growth animation on creation
     if (this.growth < 1) {
       this.growth = Math.min(1, this.growth + 0.12);
@@ -68,7 +82,6 @@ class LoomThread {
     // Unraveling decay
     if (this.isUnraveling) {
       this.unravelProgress += 0.08;
-      // Shrink towards p1
       for (let i = 0; i < this.nodes.length; i++) {
         const target = this.nodes[0];
         this.nodes[i].x += (target.x - this.nodes[i].x) * 0.15;
@@ -85,7 +98,6 @@ class LoomThread {
     // Relax distance constraints
     for (let it = 0; it < iterations; it++) {
       for (let i = 0; i < this.nodes.length - 1; i++) {
-        // If cut in the middle, break constraint at midpoint
         if (this.isCut && i === Math.floor(this.nodes.length / 2) - 1) {
           continue;
         }
@@ -122,7 +134,6 @@ class LoomThread {
     if (this.isCut) return;
     this.isCut = true;
     const mid = Math.floor(this.nodes.length / 2);
-    // Unpin midpoints so they dangle freely
     if (this.nodes[mid]) this.nodes[mid].isPinned = false;
     if (this.nodes[mid - 1]) this.nodes[mid - 1].isPinned = false;
     this.pluck(18);
@@ -131,7 +142,6 @@ class LoomThread {
   // Pluck / twang string
   pluck(intensity = 12) {
     this.vibration = intensity;
-    // Displace center nodes perpendicularly
     const mid = Math.floor(this.nodes.length / 2);
     if (!this.nodes[mid].isPinned) {
       this.nodes[mid].y += (Math.random() - 0.5) * intensity;
@@ -161,23 +171,40 @@ class LoomThread {
     const vibOffset = this.vibration * Math.sin(time * 0.05 * this.vibrationFreq);
 
     ctx.save();
-    ctx.strokeStyle = this.color;
-    ctx.lineWidth = this.thickness;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
 
-    // Drop Shadow for tactile realism
-    if (theme.hasDropShadow && !this.isBridge) {
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+    // Layer 1: Ambient Drop Shadow for tactile 3D depth
+    if (theme.hasDropShadow !== false) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.45)';
+      ctx.lineWidth = this.thickness + 1.5;
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
       ctx.shadowBlur = 6;
-      ctx.shadowOffsetX = 2;
-      ctx.shadowOffsetY = 4;
+      ctx.shadowOffsetX = 1.5;
+      ctx.shadowOffsetY = 3.5;
+
+      ctx.beginPath();
+      ctx.moveTo(this.nodes[0].x, this.nodes[0].y);
+      for (let i = 1; i < visibleCount - 1; i++) {
+        const curr = this.nodes[i];
+        const next = this.nodes[i + 1];
+        const mx = (curr.x + next.x) * 0.5;
+        const my = (curr.y + next.y) * 0.5 + (i === Math.floor(this.nodes.length / 2) ? vibOffset : 0);
+        ctx.quadraticCurveTo(curr.x, curr.y, mx, my);
+      }
+      ctx.lineTo(this.nodes[visibleCount - 1].x, this.nodes[visibleCount - 1].y);
+      ctx.stroke();
+      ctx.restore();
     }
 
-    // Glowing Neon Bloom
+    // Layer 2: Main Vibrant Silk Thread
+    ctx.strokeStyle = this.color;
+    ctx.lineWidth = this.thickness;
+
     if (theme.glow) {
       ctx.shadowColor = this.color;
-      ctx.shadowBlur = 12;
+      ctx.shadowBlur = 14;
     }
 
     if (!this.isCut) {
@@ -193,11 +220,17 @@ class LoomThread {
       }
       ctx.lineTo(this.nodes[visibleCount - 1].x, this.nodes[visibleCount - 1].y);
       ctx.stroke();
+
+      // Layer 3: Tactile Core Specular Sheen (gives cylindrical string realism)
+      if (this.thickness >= 2.0) {
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+        ctx.lineWidth = Math.max(0.75, this.thickness * 0.3);
+        ctx.stroke();
+      }
     } else {
-      // Draw two severed dangling pieces
+      // Draw severed dangling pieces
       const mid = Math.floor(this.nodes.length / 2);
 
-      // Part 1
       ctx.beginPath();
       ctx.moveTo(this.nodes[0].x, this.nodes[0].y);
       for (let i = 1; i < mid; i++) {
@@ -205,7 +238,6 @@ class LoomThread {
       }
       ctx.stroke();
 
-      // Part 2
       ctx.beginPath();
       ctx.moveTo(this.nodes[mid].x, this.nodes[mid].y);
       for (let i = mid + 1; i < this.nodes.length; i++) {

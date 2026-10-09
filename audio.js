@@ -1,108 +1,124 @@
 /**
- * Type Loom — Audio Synthesizer by Ramya
- * Rock-solid acoustic plucked harp/string synthesis engine with voice limiting, master bus compressor, and auto-resume.
+ * Type Loom — Studio Audio Synthesizer by Ramya
+ * Dual Synthesizers: Acoustic Pluck (crisp string transient) + Velvet Harp (warm resonant body)
+ * Synchronous AudioContext wake on every gesture & boosted master gain for laptop speakers.
  */
 
 class LoomAudio {
   constructor() {
     this.ctx = null;
     this.masterGain = null;
-    this.compressor = null;
+    this.limiter = null;
     this.isMuted = false;
-    
-    // Clear, audible pentatonic harp scale (C5 to C6 octave)
-    this.scale = [392.00, 440.00, 523.25, 587.33, 659.25, 783.99, 880.00, 987.77, 1046.50, 1174.66, 1318.51];
+
+    // Rich Pentatonic Harp Scale (C5 to E6 octave, optimal acoustic presence on laptop speakers)
+    this.scale = [
+      523.25, // C5
+      587.33, // D5
+      659.25, // E5
+      783.99, // G5
+      880.00, // A5
+      1046.50, // C6
+      1174.66, // D6
+      1318.51, // E6
+      1567.98  // G6
+    ];
     this.scaleIndex = 0;
 
-    // Rate limiting to protect WebAudio thread from cursor hover floods
+    // Rate limiter for high-speed cursor sweeps
     this.lastPluckTime = 0;
-    this.minPluckInterval = 45; // ms
+    this.minPluckInterval = 32; // ms
 
-    this.initOnGesture();
+    this.initInstantWake();
   }
 
-  initOnGesture() {
-    const unlock = () => {
-      this.ensureContext();
+  // Synchronously wake/resume AudioContext on EVERY click, keydown, and mouse move
+  initInstantWake() {
+    const wake = () => {
+      this.wake();
     };
 
-    ['pointerdown', 'mousedown', 'keydown', 'touchstart', 'click'].forEach(evt => {
-      window.addEventListener(evt, unlock, { capture: true, passive: true });
+    const events = [
+      'pointerdown', 'mousedown', 'touchstart', 'click',
+      'keydown', 'keyup', 'mousemove', 'touchmove', 'pointermove'
+    ];
+
+    events.forEach(evt => {
+      window.addEventListener(evt, wake, { capture: true, passive: true });
     });
 
-    // Auto-resume when tab regains focus or visibility
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') {
-        this.ensureContext();
-      }
+      if (document.visibilityState === 'visible') this.wake();
     });
 
-    window.addEventListener('focus', () => this.ensureContext());
+    window.addEventListener('focus', () => this.wake());
   }
 
-  ensureContext() {
+  wake() {
     try {
       if (!this.ctx || this.ctx.state === 'closed') {
         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
         if (!AudioContextClass) return null;
         this.ctx = new AudioContextClass();
-        
-        // Master Compressor to prevent clipping / distortion
-        this.compressor = this.ctx.createDynamicsCompressor();
-        this.compressor.threshold.setValueAtTime(-18, this.ctx.currentTime);
-        this.compressor.knee.setValueAtTime(12, this.ctx.currentTime);
-        this.compressor.ratio.setValueAtTime(8, this.ctx.currentTime);
-        this.compressor.attack.setValueAtTime(0.003, this.ctx.currentTime);
-        this.compressor.release.setValueAtTime(0.2, this.ctx.currentTime);
 
-        // Master Gain
+        // 1. Soft-Knee Output Limiter (protects speakers & eliminates distortion)
+        this.limiter = this.ctx.createDynamicsCompressor();
+        this.limiter.threshold.setValueAtTime(-6.0, this.ctx.currentTime);
+        this.limiter.knee.setValueAtTime(6.0, this.ctx.currentTime);
+        this.limiter.ratio.setValueAtTime(12.0, this.ctx.currentTime);
+        this.limiter.attack.setValueAtTime(0.001, this.ctx.currentTime);
+        this.limiter.release.setValueAtTime(0.12, this.ctx.currentTime);
+
+        // 2. Master Gain Boost (1.25x for loud, crystal-clear presence)
         this.masterGain = this.ctx.createGain();
-        this.masterGain.gain.setValueAtTime(this.isMuted ? 0 : 0.85, this.ctx.currentTime);
+        this.masterGain.gain.setValueAtTime(this.isMuted ? 0 : 1.25, this.ctx.currentTime);
 
-        // Connect master chain: [Voices] -> Compressor -> MasterGain -> Destination
-        this.compressor.connect(this.masterGain);
+        // Audio Chain: Synths -> Limiter -> MasterGain -> Speakers
+        this.limiter.connect(this.masterGain);
         this.masterGain.connect(this.ctx.destination);
       }
 
-      if (this.ctx && this.ctx.state === 'suspended') {
-        this.ctx.resume().catch(() => {});
+      if (this.ctx && this.ctx.state !== 'running') {
+        this.ctx.resume();
       }
     } catch (err) {
-      console.warn('AudioContext check note:', err);
+      console.warn('AudioContext wake note:', err);
     }
     return this.ctx;
   }
 
   toggleMute() {
-    this.ensureContext();
+    this.wake();
     this.isMuted = !this.isMuted;
 
     if (this.masterGain && this.ctx) {
       const now = this.ctx.currentTime;
       this.masterGain.gain.cancelScheduledValues(now);
-      this.masterGain.gain.setValueAtTime(this.isMuted ? 0 : 0.85, now);
+      this.masterGain.gain.setValueAtTime(this.isMuted ? 0 : 1.25, now);
     }
 
     if (!this.isMuted) {
-      // Immediate feedback chime
-      this.playPluck(523.25, 0.85, true);
+      this.playChord(523.25, 3);
     }
     return this.isMuted;
   }
 
-  // Plays an acoustic plucked string note with exponential decay
-  playPluck(frequency = null, intensity = 0.7, force = false) {
+  /**
+   * Dual Synthesizer:
+   * 1. Synth A (Acoustic Pluck): Crisp transient strike + triangle body
+   * 2. Synth B (Velvet Harp): Warm sine fundamental + sparkling 2nd & 3rd harmonic overtones
+   */
+  playPluck(frequency = null, intensity = 0.85, force = false) {
     if (this.isMuted) return;
 
-    // Prevent audio engine choking during high-speed mouse sweeps
     const nowMs = performance.now();
     if (!force && (nowMs - this.lastPluckTime < this.minPluckInterval)) {
       return;
     }
     this.lastPluckTime = nowMs;
 
-    const ctx = this.ensureContext();
-    if (!ctx || !this.compressor) return;
+    const ctx = this.wake();
+    if (!ctx || !this.limiter) return;
 
     try {
       const now = ctx.currentTime;
@@ -112,60 +128,110 @@ class LoomAudio {
         this.scaleIndex++;
       }
 
-      // 1. Primary string oscillator (Triangle wave for physical string warmth)
-      const osc = ctx.createOscillator();
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(freq, now);
+      const cleanVol = Math.min(Math.max(intensity, 0.35), 1.0);
 
-      // 2. Secondary overtone oscillator (Sine wave for shimmering harmonic resonance)
-      const overtone = ctx.createOscillator();
-      overtone.type = 'sine';
-      overtone.frequency.setValueAtTime(freq * 2, now);
+      // ==========================================
+      // SYNTH 1: ACOUSTIC PLUCK (Snappy Transient)
+      // ==========================================
+      const oscA = ctx.createOscillator();
+      oscA.type = 'triangle';
+      // Slight pitch droop on initial strike mimics string tension snap
+      oscA.frequency.setValueAtTime(freq * 1.025, now);
+      oscA.frequency.exponentialRampToValueAtTime(freq, now + 0.015);
 
-      // 3. Lowpass Filter (dampens higher harmonics naturally like real strings)
-      const filter = ctx.createBiquadFilter();
-      filter.type = 'lowpass';
-      filter.frequency.setValueAtTime(Math.min(freq * 4.5, 4200), now);
-      filter.frequency.setTargetAtTime(360, now + 0.02, 0.18);
+      const filterA = ctx.createBiquadFilter();
+      filterA.type = 'lowpass';
+      filterA.frequency.setValueAtTime(Math.min(freq * 6, 6500), now);
+      filterA.frequency.exponentialRampToValueAtTime(Math.min(freq * 2, 1800), now + 0.35);
 
-      // 4. Volume Gain Envelopes using bulletproof setTargetAtTime
-      const gain = ctx.createGain();
-      const overtoneGain = ctx.createGain();
+      const gainA = ctx.createGain();
+      gainA.gain.setValueAtTime(0.0001, now);
+      gainA.gain.linearRampToValueAtTime(cleanVol * 0.75, now + 0.004);
+      gainA.gain.exponentialRampToValueAtTime(0.0001, now + 0.45);
 
-      const mainVol = Math.min(Math.max(intensity, 0.25), 1.0) * 0.42;
-      const overVol = mainVol * 0.32;
+      oscA.connect(filterA);
+      filterA.connect(gainA);
+      gainA.connect(this.limiter);
 
-      // Attack
-      gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.linearRampToValueAtTime(mainVol, now + 0.006);
-      gain.gain.setTargetAtTime(0.0001, now + 0.015, 0.22); // Smooth acoustic decay
+      oscA.start(now);
+      oscA.stop(now + 0.5);
 
-      overtoneGain.gain.setValueAtTime(0.0001, now);
-      overtoneGain.gain.linearRampToValueAtTime(overVol, now + 0.006);
-      overtoneGain.gain.setTargetAtTime(0.0001, now + 0.015, 0.14);
+      // ==========================================
+      // SYNTH 2: VELVET HARP (Warm Body & Overtones)
+      // ==========================================
+      const oscB1 = ctx.createOscillator(); // Fundamental
+      oscB1.type = 'sine';
+      oscB1.frequency.setValueAtTime(freq, now);
 
-      // Connect graph: [Oscillators] -> [Gains] -> Filter -> Compressor -> Master
-      osc.connect(gain);
-      overtone.connect(overtoneGain);
-      gain.connect(filter);
-      overtoneGain.connect(filter);
-      filter.connect(this.compressor);
+      const oscB2 = ctx.createOscillator(); // 2nd Harmonic Shimmer
+      oscB2.type = 'sine';
+      oscB2.frequency.setValueAtTime(freq * 2, now);
 
-      // Trigger
-      osc.start(now);
-      overtone.start(now);
-      osc.stop(now + 0.9);
-      overtone.stop(now + 0.7);
+      const gainB1 = ctx.createGain();
+      gainB1.gain.setValueAtTime(0.0001, now);
+      gainB1.gain.linearRampToValueAtTime(cleanVol * 0.65, now + 0.008);
+      gainB1.gain.exponentialRampToValueAtTime(0.0001, now + 0.95);
+
+      const gainB2 = ctx.createGain();
+      gainB2.gain.setValueAtTime(0.0001, now);
+      gainB2.gain.linearRampToValueAtTime(cleanVol * 0.35, now + 0.008);
+      gainB2.gain.exponentialRampToValueAtTime(0.0001, now + 0.65);
+
+      oscB1.connect(gainB1);
+      oscB2.connect(gainB2);
+      gainB1.connect(this.limiter);
+      gainB2.connect(this.limiter);
+
+      oscB1.start(now);
+      oscB2.start(now);
+      oscB1.stop(now + 1.0);
+      oscB2.stop(now + 0.7);
     } catch (e) {
       console.warn('playPluck note:', e);
     }
   }
 
+  // Plays a rich acoustic harp chord arpeggio
+  playChord(baseFreq = 523.25, noteCount = 3) {
+    if (this.isMuted) return;
+    const intervals = [1.0, 1.25, 1.5, 1.875, 2.0];
+    for (let i = 0; i < noteCount; i++) {
+      const f = baseFreq * (intervals[i % intervals.length] || 1.0);
+      setTimeout(() => {
+        this.playPluck(f, 0.85 - i * 0.08, true);
+      }, i * 36);
+    }
+  }
+
+  // Tactile string stretch tick
+  playStretchTick(pitch = 880) {
+    if (this.isMuted) return;
+    const ctx = this.wake();
+    if (!ctx || !this.limiter) return;
+
+    try {
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(pitch, now);
+
+      gain.gain.setValueAtTime(0.25, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.025);
+
+      osc.connect(gain);
+      gain.connect(this.limiter);
+
+      osc.start(now);
+      osc.stop(now + 0.03);
+    } catch (e) {}
+  }
+
   // Scissor snip sound on Spacebar
   playSnip() {
     if (this.isMuted) return;
-    const ctx = this.ensureContext();
-    if (!ctx || !this.compressor) return;
+    const ctx = this.wake();
+    if (!ctx || !this.limiter) return;
 
     try {
       const now = ctx.currentTime;
@@ -181,16 +247,16 @@ class LoomAudio {
 
       const filter = ctx.createBiquadFilter();
       filter.type = 'bandpass';
-      filter.frequency.setValueAtTime(3400, now);
-      filter.Q.setValueAtTime(2.2, now);
+      filter.frequency.setValueAtTime(3600, now);
+      filter.Q.setValueAtTime(2.5, now);
 
       const gain = ctx.createGain();
-      gain.gain.setValueAtTime(0.38, now);
-      gain.gain.setTargetAtTime(0.0001, now + 0.01, 0.018);
+      gain.gain.setValueAtTime(0.55, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.05);
 
       noise.connect(filter);
       filter.connect(gain);
-      gain.connect(this.compressor);
+      gain.connect(this.limiter);
 
       noise.start(now);
       noise.stop(now + 0.06);
@@ -200,8 +266,8 @@ class LoomAudio {
   // Unravel sound on Backspace
   playUnravel() {
     if (this.isMuted) return;
-    const ctx = this.ensureContext();
-    if (!ctx || !this.compressor) return;
+    const ctx = this.wake();
+    if (!ctx || !this.limiter) return;
 
     try {
       const now = ctx.currentTime;
@@ -209,14 +275,14 @@ class LoomAudio {
       const gain = ctx.createGain();
 
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(740, now);
-      osc.frequency.setTargetAtTime(280, now, 0.06);
+      osc.frequency.setValueAtTime(780, now);
+      osc.frequency.exponentialRampToValueAtTime(280, now + 0.18);
 
-      gain.gain.setValueAtTime(0.26, now);
-      gain.gain.setTargetAtTime(0.0001, now + 0.02, 0.05);
+      gain.gain.setValueAtTime(0.42, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
 
       osc.connect(gain);
-      gain.connect(this.compressor);
+      gain.connect(this.limiter);
 
       osc.start(now);
       osc.stop(now + 0.22);

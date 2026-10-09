@@ -233,6 +233,8 @@ html, body {
   width: 100%;
   height: 100%;
   display: block;
+  touch-action: none;
+  cursor: crosshair;
 }
 
 /* Hidden input to capture native key and IME events */
