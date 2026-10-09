@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Type Loom — Tactile String & Thread Art</title>
+  <meta name="description" content="Type to weave living threads and string art. Space cuts, backspace unravels, click and drag to pluck threads.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Plus+Jakarta+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Main Interactive Canvas -->
+    <canvas id="loom-canvas"></canvas>
+
+    <!-- Hidden Typing Input to capture all keyboard / mobile input flawlessly -->
+    <input type="text" id="type-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" autofocus />
+
+    <!-- Ambient UI Overlay -->
+    <header class="top-nav">
+      <div class="brand">
+        <div class="logo-badge">
+          <span class="logo-needle">🪡</span>
+        </div>
+        <div class="brand-text">
+          <h1>Type Loom</h1>
+          <span class="tagline">Tactile Generative Thread Art</span>
+        </div>
+      </div>
+
+      <div class="nav-actions">
+        <button id="btn-sound" class="icon-btn" title="Toggle String Sound (Harp / Acoustic)">
+          <span id="sound-icon">🔊</span>
+          <span class="btn-label">Audio</span>
+        </button>
+        <button id="btn-theme" class="pill-btn" title="Switch Theme">
+          <span class="theme-dot"></span>
+          <span id="theme-name">Atelier Silk</span>
+        </button>
+        <button id="btn-export" class="icon-btn highlight" title="Export High-Res Image">
+          <span>📷</span>
+          <span class="btn-label">Export</span>
+        </button>
+        <button id="btn-clear" class="icon-btn" title="Clear Canvas (Esc)">
+          <span>🧹</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Empty State Guide -->
+    <div id="empty-state" class="empty-state">
+      <div class="empty-card">
+        <div class="pulse-ring"></div>
+        <div class="hero-prompt">Start typing anything...</div>
+        <div class="instruction-grid">
+          <div class="key-hint"><kbd>A–Z</kbd><span>Weave thread & pins</span></div>
+          <div class="key-hint"><kbd>Space</kbd><span>Snip & cut yarn</span></div>
+          <div class="key-hint"><kbd>⌫</kbd><span>Unravel letters</span></div>
+          <div class="key-hint"><kbd>Drag</kbd><span>Pluck & strum strings</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Floating Live Controls Panel (Bottom Left) -->
+    <div class="controls-card" id="controls-panel">
+      <div class="controls-header">
+        <span class="controls-title">Loom Controls</span>
+        <button id="toggle-panel-btn" class="mini-btn">_</button>
+      </div>
+      <div class="controls-body" id="controls-body">
+        <div class="control-row">
+          <label for="slider-tension">String Tension</label>
+          <input type="range" id="slider-tension" min="0.1" max="1.5" step="0.05" value="0.85" />
+        </div>
+        <div class="control-row">
+          <label for="slider-gravity">Gravity / Sag</label>
+          <input type="range" id="slider-gravity" min="0.0" max="0.8" step="0.02" value="0.22" />
+        </div>
+        <div class="control-row">
+          <label for="slider-density">Weave Density</label>
+          <input type="range" id="slider-density" min="1" max="6" step="1" value="3" />
+        </div>
+        <div class="control-row">
+          <label for="select-pins">Pin Style</label>
+          <select id="select-pins">
+            <option value="brass">Brass Pegs</option>
+            <option value="pearl">Pearl Pins</option>
+            <option value="neon">Neon Nodes</option>
+            <option value="minimal">Minimal Dots</option>
+            <option value="none">Hidden</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Status Bar (Bottom Right) -->
+    <div class="status-bar">
+      <span id="char-count">0 characters woven</span>
+      <span class="separator">•</span>
+      <span id="thread-count">0 threads active</span>
+    </div>
+  </div>
+
+  <script src="audio.js"></script>
+  <script src="font-glyphs.js"></script>
+  <script src="physics.js"></script>
+  <script src="themes.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
