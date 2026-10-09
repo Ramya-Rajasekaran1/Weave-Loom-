@@ -350,7 +350,11 @@ class TypeLoomStudio {
 
   // --- Keyboard & Centering ---
   setupKeyEvents() {
-    this.typeInput.addEventListener('keydown', (e) => {
+    // Global keyboard listener (works immediately without needing to click or focus first)
+    window.addEventListener('keydown', (e) => {
+      // Don't intercept when focusing on slider or special controls
+      if (e.target.tagName === 'INPUT' && e.target.type === 'range') return;
+
       if (e.key === 'Backspace') {
         e.preventDefault();
         this.handleBackspace();
@@ -363,9 +367,15 @@ class TypeLoomStudio {
       } else if (e.key === 'Escape') {
         e.preventDefault();
         this.clearCanvas();
+      } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        this.textString += e.key;
+        this.rebuildAllCharacters();
+        window.LoomAudio.playPluck(null, 0.85, true);
       }
     });
 
+    // Mobile / IME virtual input listener
     this.typeInput.addEventListener('input', (e) => {
       const val = this.typeInput.value;
       if (val.length > 0) {
@@ -378,7 +388,7 @@ class TypeLoomStudio {
           } else {
             this.textString += char;
             this.rebuildAllCharacters();
-            window.LoomAudio.playPluck(null, 0.75, true);
+            window.LoomAudio.playPluck(null, 0.85, true);
           }
         }
         this.typeInput.value = '';
