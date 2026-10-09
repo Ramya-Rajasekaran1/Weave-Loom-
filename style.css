@@ -1,9 +1,9 @@
 :root {
   --bg-workspace: #08090c;
   --artboard-bg: #0c0d12;
-  --dock-bg: rgba(16, 18, 24, 0.92);
+  --dock-bg: rgba(16, 18, 24, 0.94);
   --dock-border: rgba(255, 255, 255, 0.12);
-  --ribbon-bg: rgba(20, 22, 30, 0.95);
+  --ribbon-bg: rgba(20, 22, 30, 0.96);
   --ribbon-border: rgba(255, 255, 255, 0.15);
   --text-main: #ffffff;
   --text-muted: #9499a8;
@@ -52,6 +52,7 @@ html, body {
   justify-content: space-between;
   z-index: 50;
   pointer-events: none;
+  gap: 16px;
 }
 
 .studio-header > * {
@@ -61,26 +62,56 @@ html, body {
 .header-left {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 20px;
+}
+
+.project-identity {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-family: var(--font-mono);
   font-size: 13px;
+  white-space: nowrap;
 }
 
 .project-tag {
   font-weight: 600;
   color: #ffffff;
-  letter-spacing: -0.01em;
 }
 
 .project-by {
   color: var(--text-muted);
 }
 
-.author-link {
+.author-name {
   color: #ffffff;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  font-weight: 500;
+  font-weight: 600;
+}
+
+/* Header Keybinding Hints (Moved to top left, zero bottom collision) */
+.header-hints {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+  white-space: nowrap;
+}
+
+.hint-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.header-hints kbd {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 1px 5px;
+  border-radius: 4px;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 10px;
 }
 
 /* Aspect Ratio / Artboard Framing Switcher */
@@ -93,6 +124,7 @@ html, body {
   align-items: center;
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
+  white-space: nowrap;
 }
 
 .aspect-btn {
@@ -122,6 +154,7 @@ html, body {
   display: flex;
   align-items: center;
   gap: 8px;
+  white-space: nowrap;
 }
 
 .header-btn {
@@ -136,6 +169,7 @@ html, body {
   cursor: pointer;
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
+  white-space: nowrap;
   transition: all 0.2s var(--ease-expo);
 }
 
@@ -270,40 +304,10 @@ html, body {
   transform: translateX(-50%) translateY(0);
 }
 
-/* --- Bottom Left Keybinding Microcopy (Non-obstructing) --- */
-.keyboard-hints {
-  position: absolute;
-  bottom: 22px;
-  left: 24px;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.45);
-  pointer-events: none;
-  z-index: 40;
-  letter-spacing: -0.01em;
-}
-
-.hint-item {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.keyboard-hints kbd {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  padding: 2px 6px;
-  border-radius: 4px;
-  color: #ffffff;
-}
-
 /* --- Bottom Floating Dock Wrapper --- */
 .bottom-dock-wrapper {
   position: absolute;
-  bottom: 20px;
+  bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -312,9 +316,10 @@ html, body {
   gap: 8px;
   z-index: 60;
   pointer-events: auto;
+  max-width: 98vw;
 }
 
-/* --- Sub-Ribbon Row (Appears On One Line Just Above The Dock) --- */
+/* --- Sub-Ribbon Row (Stacked On One Horizontal Line Directly Above Dock) --- */
 .dock-sub-ribbon {
   display: none;
   background: var(--ribbon-bg);
@@ -322,9 +327,10 @@ html, body {
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
   border-radius: 12px;
-  padding: 4px 6px;
+  padding: 4px 8px;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.06);
-  animation: ribbonSlideUp 0.22s var(--ease-expo);
+  animation: ribbonSlideUp 0.2s var(--ease-expo);
+  white-space: nowrap;
 }
 
 .dock-sub-ribbon.open {
@@ -335,7 +341,7 @@ html, body {
 @keyframes ribbonSlideUp {
   0% {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(6px);
   }
   100% {
     opacity: 1;
@@ -347,13 +353,14 @@ html, body {
   display: none;
   align-items: center;
   gap: 4px;
+  white-space: nowrap;
 }
 
 .sub-ribbon-content.active {
   display: flex;
 }
 
-/* Sub-Ribbon Option Buttons (Palettes & Effects) */
+/* Sub-Ribbon Option Buttons */
 .ribbon-opt {
   background: transparent;
   border: none;
@@ -368,6 +375,7 @@ html, body {
   gap: 8px;
   cursor: pointer;
   white-space: nowrap;
+  flex-shrink: 0;
   transition: all 0.15s ease;
 }
 
@@ -410,17 +418,19 @@ html, body {
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
   border-radius: 14px;
-  padding: 5px 12px;
+  padding: 5px 14px;
   display: flex;
   align-items: center;
   gap: 12px;
-  box-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  white-space: nowrap;
+  box-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
 .dock-divider {
   width: 1px;
   height: 20px;
   background: rgba(255, 255, 255, 0.12);
+  flex-shrink: 0;
 }
 
 .dock-item {
@@ -430,8 +440,10 @@ html, body {
   align-items: center;
   gap: 8px;
   cursor: pointer;
-  padding: 4px 6px;
+  padding: 5px 8px;
   border-radius: 8px;
+  white-space: nowrap;
+  flex-shrink: 0;
   transition: background 0.15s ease;
 }
 
@@ -446,12 +458,14 @@ html, body {
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.06em;
+  white-space: nowrap;
 }
 
 .active-effect-name, .dock-val {
   font-size: 12px;
   font-weight: 600;
   color: #ffffff;
+  white-space: nowrap;
 }
 
 .chevron {
@@ -469,6 +483,7 @@ html, body {
   display: flex;
   align-items: center;
   gap: 3px;
+  flex-shrink: 0;
 }
 
 .preview-dot {
@@ -480,6 +495,9 @@ html, body {
 /* Stroke Thickness Slider */
 .stroke-control {
   cursor: default;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .stroke-control input[type="range"] {
@@ -514,6 +532,7 @@ html, body {
   height: 7px;
   border-radius: 50%;
   background: #6b7280;
+  flex-shrink: 0;
   transition: background 0.2s ease;
 }
 
@@ -533,10 +552,17 @@ html, body {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 8px;
+  padding: 5px 8px;
   border-radius: 8px;
   cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
   transition: all 0.15s ease;
+}
+
+.btn-text-nowrap {
+  white-space: nowrap;
+  display: inline-block;
 }
 
 .dock-btn:hover {
@@ -554,8 +580,8 @@ html, body {
 
 /* --- Responsive Adjustments --- */
 @media (max-width: 960px) {
-  .keyboard-hints {
-    display: none; /* Auto-hide on smaller viewports so dock has complete breathing room */
+  .header-hints {
+    display: none;
   }
   .bottom-dock-wrapper {
     max-width: 96vw;

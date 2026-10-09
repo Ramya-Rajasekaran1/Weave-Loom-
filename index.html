@@ -15,8 +15,18 @@
     <!-- Top Header Bar -->
     <header class="studio-header">
       <div class="header-left">
-        <span class="project-tag">Type Loom</span>
-        <span class="project-by">by <a href="#" class="author-link" id="author-link">Ramya</a></span>
+        <div class="project-identity">
+          <span class="project-tag">Type Loom</span>
+          <span class="project-by">by <span class="author-name">Ramya</span></span>
+        </div>
+        <!-- Keybinding Hints Moved to Header for Zero Bottom Collision -->
+        <div class="header-hints" aria-hidden="true">
+          <span class="hint-item"><kbd>Type</kbd> weave</span>
+          <span class="hint-item"><kbd>Space</kbd> cut</span>
+          <span class="hint-item"><kbd>⌫</kbd> unravel</span>
+          <span class="hint-item"><kbd>Enter</kbd> clear</span>
+          <span class="hint-item"><kbd>Drag</kbd> pluck</span>
+        </div>
       </div>
 
       <div class="header-center">
@@ -64,16 +74,7 @@
     <!-- Toast Notification -->
     <div id="toast" class="toast-notification" role="status" aria-live="polite">Link copied!</div>
 
-    <!-- Bottom Left Keybinding Microcopy (Non-obstructing, positioned cleanly) -->
-    <div class="keyboard-hints" id="keyboard-hints" aria-hidden="true">
-      <span class="hint-item"><kbd>Type</kbd> weave</span>
-      <span class="hint-item"><kbd>Space</kbd> cut</span>
-      <span class="hint-item"><kbd>⌫</kbd> unravel</span>
-      <span class="hint-item"><kbd>Enter</kbd> clear</span>
-      <span class="hint-item"><kbd>Drag</kbd> pluck</span>
-    </div>
-
-    <!-- Bottom Floating Dock Container (Includes Sub-Ribbon Line Above Main Dock) -->
+    <!-- Bottom Floating Dock Container -->
     <div class="bottom-dock-wrapper" id="bottom-dock-wrapper">
       
       <!-- Horizontal Sub-Ribbon Row (Appears on one line just above the dock on click) -->
@@ -108,7 +109,7 @@
         </div>
       </div>
 
-      <!-- Main Figma-Inspired Bottom Centered Glass Toolbar -->
+      <!-- Main Figma-Inspired Bottom Centered Glass Toolbar (Strictly single horizontal line) -->
       <nav class="figma-bottom-dock" aria-label="Loom Controls">
         <!-- 1. Color Palette Selector Trigger -->
         <button class="dock-item" id="palette-menu-trigger" title="Choose Color Palette">
@@ -144,7 +145,7 @@
         <!-- 4. Pin / Bubble Toggle Button -->
         <button id="btn-toggle-pins" class="dock-btn" title="Toggle Pin Pegs" aria-label="Toggle Pins">
           <span class="status-dot active" id="pin-status-dot"></span>
-          <span id="pin-status-text">Pins: On</span>
+          <span id="pin-status-text" class="btn-text-nowrap">Pins: On</span>
         </button>
 
         <div class="dock-divider"></div>
@@ -152,7 +153,7 @@
         <!-- 5. Sound Synthesizer Toggle Button -->
         <button id="btn-toggle-sound" class="dock-btn" title="Toggle Acoustic Sound" aria-label="Toggle Sound">
           <span class="status-dot active" id="sound-status-dot"></span>
-          <span id="sound-status-text">Audio: On</span>
+          <span id="sound-status-text" class="btn-text-nowrap">Audio: On</span>
         </button>
 
         <div class="dock-divider"></div>
