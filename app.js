@@ -313,14 +313,6 @@ class TypeLoomStudio {
       });
     });
 
-    // Pin Toggle
-    this.btnTogglePins.addEventListener('click', () => {
-      this.showPins = !this.showPins;
-      if (this.showPins) this.pinStatusDot.classList.add('active');
-      else this.pinStatusDot.classList.remove('active');
-      this.pinStatusText.textContent = this.showPins ? 'Pins: On' : 'Pins: Off';
-    });
-
     // Sound Toggle
     this.btnToggleSound.addEventListener('click', () => {
       const isMuted = window.LoomAudio.toggleMute();
