@@ -1,6 +1,5 @@
 /**
- * Type Loom — Main Interactive Application Controller
- * High-craft generative tactile typography with Type Garden style UI controls.
+ * Type Loom — Exact Type Garden UI & Poster Mode Controller
  */
 
 class TypeLoomApp {
@@ -8,25 +7,28 @@ class TypeLoomApp {
     this.canvas = document.getElementById('loom-canvas');
     this.ctx = this.canvas.getContext('2d');
     this.typeInput = document.getElementById('type-input');
-    this.emptyState = document.getElementById('empty-state');
+    this.toastEl = document.getElementById('toast');
 
     // UI elements
-    this.soundIconEl = document.getElementById('sound-icon');
     this.paletteGroupEl = document.getElementById('palette-swatches');
+    this.posterPaletteGridEl = document.getElementById('poster-palette-grid');
+    this.motionGridEl = document.getElementById('motion-grid');
+    this.viewToggle = document.getElementById('view-toggle');
 
-    // Controls
-    this.sliderTension = document.getElementById('slider-tension');
-    this.sliderGravity = document.getElementById('slider-gravity');
-    this.sliderDensity = document.getElementById('slider-density');
-    this.valTension = document.getElementById('val-tension');
-    this.valGravity = document.getElementById('val-gravity');
-    this.valDensity = document.getElementById('val-density');
-    this.pinStyleControl = document.getElementById('pin-style-control');
-
-    // Themes
+    // Themes & Palettes
     this.themeKeys = Object.keys(LOOM_THEMES);
-    this.currentThemeKey = 'rose'; // Default to iconic Type Garden-esque vibrant red/blue/black
+    this.currentThemeKey = 'figma'; // Default to Figma Brand Colors!
     this.theme = LOOM_THEMES[this.currentThemeKey];
+
+    // Mode: 'type' | 'poster'
+    this.currentView = 'type';
+
+    // Motion Presets: 'breathe' | 'grow-wither' | 'typed' | 'gust' | 'reach' | 'scatter' | 'visitor'
+    this.currentMotion = 'breathe';
+    this.motionTime = 0;
+
+    // Visitor entity for 'visitor' motion
+    this.visitor = { x: 200, y: 200, targetX: 300, targetY: 300, angle: 0, speed: 3 };
 
     // State
     this.characters = []; // { id, char, x, y, width, height, pins: [] }
@@ -34,15 +36,15 @@ class TypeLoomApp {
     this.lastPin = null;  // For bridging between consecutive letters
 
     // Layout settings
-    this.fontSize = 80;
-    this.lineHeight = 124;
+    this.fontSize = 86;
+    this.lineHeight = 130;
     this.letterSpacing = 18;
     this.startX = 80;
-    this.startY = 180;
+    this.startY = 220;
     this.cursorX = this.startX;
     this.cursorY = this.startY;
 
-    // Mouse Tracking for String Plucking
+    // Mouse Tracking
     this.mousePrev = { x: 0, y: 0 };
     this.mouseCurr = { x: 0, y: 0 };
     this.isMouseDown = false;
@@ -50,14 +52,11 @@ class TypeLoomApp {
     // Needle Flying Shuttles (Visual FX)
     this.shuttles = [];
 
-    // Configuration
-    this.tension = parseFloat(this.sliderTension.value);
-    this.gravity = parseFloat(this.sliderGravity.value);
-    this.weaveDensity = parseInt(this.sliderDensity.value, 10);
+    // Physics parameters
+    this.tension = 0.85;
+    this.gravity = 0.22;
+    this.weaveDensity = 3;
     this.pinStyle = 'brass';
-
-    // Sample showcase words for shuffle / quick demo
-    this.sampleWords = ['TYPE GARDEN', 'WEAVE', 'TACTILE', 'STRINGS', 'CREATIVE', 'HARMONY', 'AESTHETIC', 'BLOOM'];
 
     this.init();
   }
@@ -68,43 +67,65 @@ class TypeLoomApp {
 
     // Auto-focus hidden input on any click (unless clicking on interactive UI)
     window.addEventListener('click', (e) => {
-      if (!e.target.closest('.bottom-dock-container') && !e.target.closest('.top-actions')) {
+      if (!e.target.closest('.top-left-header') && 
+          !e.target.closest('.top-right-header') && 
+          !e.target.closest('.bottom-right-dock') &&
+          !e.target.closest('.poster-drawer')) {
         this.focusInput();
       }
     });
 
-    this.renderPaletteSwatches();
+    this.renderTypeViewSwatches();
+    this.renderPosterPaletteCards();
+    this.setupViewToggle();
+    this.setupMotionControls();
     this.setupKeyEvents();
     this.setupMouseEvents();
-    this.setupUIEvents();
+    this.setupActionButtons();
 
-    // Start with default theme styling
+    // Apply default theme
     this.applyTheme(this.currentThemeKey);
 
-    // Initial 60fps loop
+    // Initial demo word
+    this.seedDefaultText();
+
+    // Start 60fps loop
     requestAnimationFrame((t) => this.renderLoop(t));
+  }
+
+  seedDefaultText() {
+    const text = "FIGMA";
+    let i = 0;
+    const interval = setInterval(() => {
+      if (i < text.length) {
+        this.addCharacter(text[i]);
+        i++;
+      } else {
+        clearInterval(interval);
+      }
+    }, 120);
   }
 
   resize() {
     const dpr = window.devicePixelRatio || 1;
-    this.width = window.innerWidth;
-    this.height = window.innerHeight;
+    const container = document.getElementById('canvas-viewport');
+    this.width = container.clientWidth || window.innerWidth;
+    this.height = container.clientHeight || window.innerHeight;
 
     this.canvas.width = this.width * dpr;
     this.canvas.height = this.height * dpr;
     this.ctx.scale(dpr, dpr);
 
-    // Responsive layout scaling
     if (this.width < 600) {
-      this.fontSize = 50;
-      this.lineHeight = 80;
+      this.fontSize = 52;
+      this.lineHeight = 84;
       this.startX = 24;
-      this.startY = 130;
-    } else {
-      this.fontSize = 80;
-      this.lineHeight = 124;
-      this.startX = 80;
       this.startY = 180;
+    } else {
+      this.fontSize = 86;
+      this.lineHeight = 130;
+      this.startX = 80;
+      this.startY = 220;
     }
   }
 
@@ -112,18 +133,80 @@ class TypeLoomApp {
     this.typeInput.focus();
   }
 
-  renderPaletteSwatches() {
+  // --- View Toggle (Type vs Poster) ---
+  setupViewToggle() {
+    const btns = this.viewToggle.querySelectorAll('.view-btn');
+    btns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        btns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const view = btn.getAttribute('data-view');
+        this.setView(view);
+      });
+    });
+  }
+
+  setView(view) {
+    this.currentView = view;
+    if (view === 'poster') {
+      document.body.classList.remove('mode-type');
+      document.body.classList.add('mode-poster');
+    } else {
+      document.body.classList.remove('mode-poster');
+      document.body.classList.add('mode-type');
+    }
+    setTimeout(() => this.resize(), 420);
+  }
+
+  // --- Render Swatches for Type View ---
+  renderTypeViewSwatches() {
     this.paletteGroupEl.innerHTML = '';
     this.themeKeys.forEach((key) => {
       const themeObj = LOOM_THEMES[key];
       const btn = document.createElement('button');
-      btn.className = `palette-btn ${key === this.currentThemeKey ? 'active' : ''}`;
+      btn.className = `swatch-dot-btn ${key === this.currentThemeKey ? 'active' : ''}`;
       btn.title = themeObj.name;
-      btn.style.background = themeObj.previewGradient;
+      btn.style.backgroundColor = themeObj.dot1 || themeObj.pinFill;
       btn.addEventListener('click', () => {
         this.applyTheme(key);
       });
       this.paletteGroupEl.appendChild(btn);
+    });
+  }
+
+  // --- Render Rich Palette Cards for Poster Drawer ---
+  renderPosterPaletteCards() {
+    this.posterPaletteGridEl.innerHTML = '';
+    this.themeKeys.forEach((key) => {
+      const t = LOOM_THEMES[key];
+      const card = document.createElement('div');
+      card.className = `palette-card ${key === this.currentThemeKey ? 'active' : ''}`;
+      card.setAttribute('data-theme', key);
+
+      // Card pill with 2 color dots + "Aa"
+      const dotsHTML = t.id === 'figma' 
+        ? `<div class="palette-dot" style="background:${t.dot1}"></div>
+           <div class="palette-dot" style="background:${t.dot2}"></div>
+           <div class="palette-dot" style="background:${t.dot3}"></div>
+           <div class="palette-dot" style="background:${t.dot4}"></div>`
+        : `<div class="palette-dot" style="background:${t.dot1}"></div>
+           <div class="palette-dot" style="background:${t.dot2}"></div>`;
+
+      card.innerHTML = `
+        <div class="palette-card-pill" style="background:${t.cardBg}; color:${t.textColor};">
+          <div class="palette-dots-container">
+            ${dotsHTML}
+          </div>
+          <span class="palette-aa">Aa</span>
+        </div>
+        <div class="palette-title">${t.name}</div>
+      `;
+
+      card.addEventListener('click', () => {
+        this.applyTheme(key);
+      });
+
+      this.posterPaletteGridEl.appendChild(card);
     });
   }
 
@@ -134,13 +217,23 @@ class TypeLoomApp {
     document.body.style.backgroundColor = this.theme.bg;
     document.documentElement.style.setProperty('--bg-color', this.theme.bg);
 
-    // Update active swatch state
-    const btns = this.paletteGroupEl.querySelectorAll('.palette-btn');
-    btns.forEach((b, idx) => {
+    // Update Type view active swatch dot
+    const dots = this.paletteGroupEl.querySelectorAll('.swatch-dot-btn');
+    dots.forEach((d, idx) => {
       if (this.themeKeys[idx] === themeKey) {
-        b.classList.add('active');
+        d.classList.add('active');
       } else {
-        b.classList.remove('active');
+        d.classList.remove('active');
+      }
+    });
+
+    // Update Poster view active cards
+    const cards = this.posterPaletteGridEl.querySelectorAll('.palette-card');
+    cards.forEach((c) => {
+      if (c.getAttribute('data-theme') === themeKey) {
+        c.classList.add('active');
+      } else {
+        c.classList.remove('active');
       }
     });
 
@@ -154,6 +247,20 @@ class TypeLoomApp {
     });
   }
 
+  // --- Motion Controls ---
+  setupMotionControls() {
+    const cards = this.motionGridEl.querySelectorAll('.motion-card');
+    cards.forEach((card) => {
+      card.addEventListener('click', () => {
+        cards.forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
+        this.currentMotion = card.getAttribute('data-motion');
+        this.motionTime = 0;
+      });
+    });
+  }
+
+  // --- Key Events ---
   setupKeyEvents() {
     this.typeInput.addEventListener('keydown', (e) => {
       if (e.key === 'Backspace') {
@@ -161,7 +268,7 @@ class TypeLoomApp {
         this.unravelLastCharacter();
       } else if (e.key === 'Enter') {
         e.preventDefault();
-        this.newLine();
+        this.clearCanvas(); // Type Garden clears on Enter!
       } else if (e.key === ' ') {
         e.preventDefault();
         this.snipAndSpace();
@@ -187,6 +294,7 @@ class TypeLoomApp {
     });
   }
 
+  // --- Mouse / Pluck Events ---
   setupMouseEvents() {
     const onMove = (clientX, clientY) => {
       this.mousePrev = { ...this.mouseCurr };
@@ -216,74 +324,58 @@ class TypeLoomApp {
     window.addEventListener('mouseup', () => { this.isMouseDown = false; });
   }
 
-  setupUIEvents() {
-    // Sound Toggle
-    document.getElementById('btn-sound').addEventListener('click', () => {
+  // --- Action Buttons ---
+  setupActionButtons() {
+    // Copy Code / Link Toast
+    document.getElementById('btn-copy-link').addEventListener('click', () => {
+      navigator.clipboard.writeText(window.location.href).catch(() => {});
+      this.showToast('Copied to clipboard!');
+    });
+
+    document.getElementById('btn-coffee').addEventListener('click', () => {
+      window.open('https://buymeacoffee.com', '_blank');
+    });
+
+    // Exports
+    document.getElementById('btn-export-png-mini').addEventListener('click', () => this.exportPNG());
+    document.getElementById('btn-export-svg-mini').addEventListener('click', () => this.exportSVG());
+    document.getElementById('btn-export-poster-png').addEventListener('click', () => this.exportPosterPNG());
+    document.getElementById('btn-export-poster-svg').addEventListener('click', () => this.exportSVG());
+
+    // Sound toggle in poster view
+    document.getElementById('btn-sound-toggle').addEventListener('click', () => {
       const isMuted = window.LoomAudio.toggleMute();
-      this.soundIconEl.textContent = isMuted ? '🔇' : '🔊';
+      document.getElementById('poster-sound-icon').textContent = isMuted ? '🔇 Sound Off' : '🔊 Sound On';
     });
+  }
 
-    // Randomize / Shuffle Showcase Word
-    document.getElementById('btn-random').addEventListener('click', () => this.shufflePreset());
-
-    // Clear Canvas
-    document.getElementById('btn-clear').addEventListener('click', () => this.clearCanvas());
-
-    // Export PNG
-    document.getElementById('btn-export-png').addEventListener('click', () => this.exportPNG());
-
-    // Export SVG
-    document.getElementById('btn-export-svg').addEventListener('click', () => this.exportSVG());
-
-    // Sliders
-    this.sliderTension.addEventListener('input', (e) => {
-      this.tension = parseFloat(e.target.value);
-      this.valTension.textContent = `${Math.round(this.tension * 100)}%`;
-      this.threads.forEach(t => { t.tension = this.tension; });
-    });
-
-    this.sliderGravity.addEventListener('input', (e) => {
-      this.gravity = parseFloat(e.target.value);
-      this.valGravity.textContent = `${Math.round(this.gravity * 100)}`;
-    });
-
-    this.sliderDensity.addEventListener('input', (e) => {
-      this.weaveDensity = parseInt(e.target.value, 10);
-      this.valDensity.textContent = `${this.weaveDensity}x`;
-    });
-
-    // Pin Style Segmented Selector
-    const segBtns = this.pinStyleControl.querySelectorAll('.segment-btn');
-    segBtns.forEach((btn) => {
-      btn.addEventListener('click', () => {
-        segBtns.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        this.pinStyle = btn.getAttribute('data-style');
-      });
-    });
+  showToast(msg) {
+    this.toastEl.textContent = msg;
+    this.toastEl.classList.add('show');
+    setTimeout(() => {
+      this.toastEl.classList.remove('show');
+    }, 2000);
   }
 
   // --- Weaving Core ---
 
   addCharacter(char) {
-    if (this.emptyState) {
-      this.emptyState.classList.add('hidden');
-    }
-
     const topo = window.getGlyphTopology(char);
     const charWidth = this.fontSize * 0.75;
     const charHeight = this.fontSize;
 
-    // Check line wrapping
+    // Line wrap
     if (this.cursorX + charWidth + this.startX > this.width - 40) {
-      this.newLine();
+      this.cursorX = this.startX;
+      this.cursorY += this.lineHeight;
+      this.lastPin = null;
     }
 
     const charId = `char_${Date.now()}_${Math.random()}`;
     const x = this.cursorX;
     const y = this.cursorY;
 
-    // Map physical pins for this character
+    // Physical pins
     const pins = topo.pins.map(p => ({
       x: x + p.x * charWidth,
       y: y + p.y * charHeight
@@ -303,7 +395,7 @@ class TypeLoomApp {
     const palette = this.theme.threadColors;
     const charColor = palette[this.characters.length % palette.length];
 
-    // 1. Primary letter strokes
+    // Primary strokes
     topo.strokes.forEach((strokeIndices) => {
       for (let i = 0; i < strokeIndices.length - 1; i++) {
         const p1 = pins[strokeIndices[i]];
@@ -320,7 +412,7 @@ class TypeLoomApp {
       }
     });
 
-    // 2. Weave cross-density decorative strings
+    // Cross-weaving lattice
     if (this.weaveDensity > 1 && pins.length >= 3) {
       const extraPasses = Math.min(this.weaveDensity - 1, pins.length - 1);
       for (let i = 0; i < extraPasses; i++) {
@@ -338,7 +430,7 @@ class TypeLoomApp {
       }
     }
 
-    // 3. Connect bridge yarn from previous letter to this letter
+    // Bridge from previous letter
     if (this.lastPin && pins.length > 0) {
       const bridgePin = pins[0];
       const bridgeThread = new LoomThread(this.lastPin, bridgePin, {
@@ -369,27 +461,6 @@ class TypeLoomApp {
     window.LoomAudio.playSnip();
   }
 
-  newLine() {
-    this.cursorX = this.startX;
-    this.cursorY += this.lineHeight;
-    this.lastPin = null;
-
-    if (this.cursorY + this.lineHeight > this.height - 110) {
-      const shiftY = this.lineHeight;
-      this.cursorY -= shiftY;
-      this.characters.forEach(c => {
-        c.y -= shiftY;
-        c.pins.forEach(p => p.y -= shiftY);
-      });
-      this.threads.forEach(t => {
-        t.nodes.forEach(n => {
-          n.y -= shiftY;
-          n.oldY -= shiftY;
-        });
-      });
-    }
-  }
-
   unravelLastCharacter() {
     if (this.characters.length === 0) return;
 
@@ -408,9 +479,6 @@ class TypeLoomApp {
       this.lastPin = prev.pins[prev.pins.length - 1];
     } else {
       this.lastPin = null;
-      if (this.emptyState) {
-        this.emptyState.classList.remove('hidden');
-      }
     }
 
     window.LoomAudio.playUnravel();
@@ -423,33 +491,6 @@ class TypeLoomApp {
     this.lastPin = null;
     this.cursorX = this.startX;
     this.cursorY = this.startY;
-    if (this.emptyState) {
-      this.emptyState.classList.remove('hidden');
-    }
-  }
-
-  shufflePreset() {
-    this.clearCanvas();
-    const word = this.sampleWords[Math.floor(Math.random() * this.sampleWords.length)];
-    // Random theme
-    const randomTheme = this.themeKeys[Math.floor(Math.random() * this.themeKeys.length)];
-    this.applyTheme(randomTheme);
-
-    // Weave word character by character
-    let i = 0;
-    const interval = setInterval(() => {
-      if (i < word.length) {
-        const char = word[i];
-        if (char === ' ') {
-          this.snipAndSpace();
-        } else {
-          this.addCharacter(char);
-        }
-        i++;
-      } else {
-        clearInterval(interval);
-      }
-    }, 120);
   }
 
   spawnShuttle(p1, p2, color) {
@@ -464,6 +505,8 @@ class TypeLoomApp {
     });
   }
 
+  // --- Exports ---
+
   exportPNG() {
     const link = document.createElement('a');
     link.download = `type-loom-${Date.now()}.png`;
@@ -471,10 +514,47 @@ class TypeLoomApp {
     link.click();
   }
 
-  exportSVG() {
-    const svgWidth = this.width;
-    const svgHeight = this.height;
+  exportPosterPNG() {
+    // Generate high-resolution poster with framing & title
+    const offCanvas = document.createElement('canvas');
+    const scale = 2;
+    offCanvas.width = 1600 * scale;
+    offCanvas.height = 2000 * scale;
+    const offCtx = offCanvas.getContext('2d');
+    offCtx.scale(scale, scale);
 
+    // Background
+    offCtx.fillStyle = this.theme.bg;
+    offCtx.fillRect(0, 0, 1600, 2000);
+
+    // Draw main canvas scaled to poster center
+    offCtx.save();
+    offCtx.translate(200, 400);
+    offCtx.drawImage(this.canvas, 0, 0, this.width, this.height, 0, 0, 1200, (1200 / this.width) * this.height);
+    offCtx.restore();
+
+    // Poster Title & Subtitle Header
+    offCtx.fillStyle = this.theme.textColor;
+    offCtx.font = "600 52px 'Newsreader', Georgia, serif";
+    offCtx.fillText("TYPE LOOM", 200, 240);
+
+    offCtx.fillStyle = "rgba(255, 255, 255, 0.5)";
+    offCtx.font = "400 20px 'JetBrains Mono', monospace";
+    offCtx.fillText("GENERATIVE TACTILE THREAD ART", 200, 280);
+
+    // Poster Footer
+    offCtx.fillStyle = "rgba(255, 255, 255, 0.4)";
+    offCtx.font = "400 16px 'JetBrains Mono', monospace";
+    offCtx.fillText("1600 × 2000 PX · FIGMA COLOR SYSTEM", 200, 1860);
+    offCtx.fillText("A PROJECT BY ADHITHYA", 1160, 1860);
+
+    const link = document.createElement('a');
+    link.download = `type-loom-poster-${Date.now()}.png`;
+    link.href = offCanvas.toDataURL('image/png');
+    link.click();
+  }
+
+  exportSVG() {
     let svgPaths = '';
     this.threads.forEach(t => {
       if (t.nodes.length < 2 || t.unravelProgress >= 1) return;
@@ -486,16 +566,14 @@ class TypeLoomApp {
     });
 
     let svgPins = '';
-    if (this.pinStyle !== 'none') {
-      this.characters.forEach(c => {
-        c.pins.forEach(p => {
-          svgPins += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3.5" fill="${this.theme.pinFill}" stroke="${this.theme.pinStroke}" stroke-width="1" />\n`;
-        });
+    this.characters.forEach(c => {
+      c.pins.forEach(p => {
+        svgPins += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3.5" fill="${this.theme.pinFill}" stroke="${this.theme.pinStroke}" stroke-width="1" />\n`;
       });
-    }
+    });
 
     const svgContent = `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${svgWidth} ${svgHeight}" width="${svgWidth}" height="${svgHeight}">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.width} ${this.height}" width="${this.width}" height="${this.height}">
   <rect width="100%" height="100%" fill="${this.theme.bg}" />
   <g id="threads">
     ${svgPaths}
@@ -514,13 +592,19 @@ class TypeLoomApp {
     URL.revokeObjectURL(url);
   }
 
-  // --- 60 FPS Loop ---
+  // --- Animation & Motion Simulation Loop ---
 
   renderLoop(time) {
+    this.motionTime += 0.016;
+
+    // 1. Background
     this.ctx.fillStyle = this.theme.bg;
     this.ctx.fillRect(0, 0, this.width, this.height);
 
-    // Physics Update
+    // 2. Motion Presets Execution
+    this.applyMotionEffects(time);
+
+    // 3. Physics Simulation
     for (let i = this.threads.length - 1; i >= 0; i--) {
       const t = this.threads[i];
       t.update(this.gravity, 0.96);
@@ -529,12 +613,12 @@ class TypeLoomApp {
       }
     }
 
-    // Draw Threads
+    // 4. Draw Threads
     for (const thread of this.threads) {
       thread.draw(this.ctx, time, this.theme);
     }
 
-    // Draw Flying Needle Shuttles
+    // 5. Draw Shuttles
     for (let i = this.shuttles.length - 1; i >= 0; i--) {
       const s = this.shuttles[i];
       s.progress += s.speed;
@@ -555,53 +639,127 @@ class TypeLoomApp {
       }
     }
 
-    // Draw Pins
-    if (this.pinStyle !== 'none') {
-      this.drawPins();
-    }
+    // 6. Draw Pins
+    this.drawPins();
 
-    // Draw Blinking Cursor
+    // 7. Draw Blinking Loom Cursor
     this.drawCursor(time);
 
     requestAnimationFrame((t) => this.renderLoop(t));
+  }
+
+  applyMotionEffects(time) {
+    if (this.currentMotion === 'breathe') {
+      // 3s Slow Sway
+      const sway = Math.sin(time * 0.002) * 1.5;
+      this.threads.forEach(t => {
+        t.nodes.forEach((n, idx) => {
+          if (!n.isPinned) {
+            n.y += Math.sin(time * 0.002 + idx * 0.5) * 0.35;
+            n.x += sway * 0.15;
+          }
+        });
+      });
+    } else if (this.currentMotion === 'gust') {
+      // 4s Periodic Wind Gust
+      const gustCycle = (time * 0.001) % 4;
+      if (gustCycle < 1.5) {
+        const gustForce = Math.sin((gustCycle / 1.5) * Math.PI) * 2.8;
+        this.threads.forEach(t => {
+          t.nodes.forEach(n => {
+            if (!n.isPinned) n.x += gustForce * (0.8 + Math.random() * 0.4);
+          });
+        });
+      }
+    } else if (this.currentMotion === 'reach') {
+      // 6s Stems follow light
+      const lightX = this.width * 0.5 + Math.cos(time * 0.0015) * (this.width * 0.35);
+      const lightY = this.height * 0.4 + Math.sin(time * 0.0025) * 120;
+
+      // Draw wandering light orb
+      this.ctx.save();
+      this.ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+      this.ctx.shadowColor = this.theme.bridgeColor;
+      this.ctx.shadowBlur = 24;
+      this.ctx.beginPath();
+      this.ctx.arc(lightX, lightY, 6, 0, Math.PI * 2);
+      this.ctx.fill();
+      this.ctx.restore();
+
+      this.threads.forEach(t => {
+        t.nodes.forEach(n => {
+          if (!n.isPinned) {
+            const dx = lightX - n.x;
+            const dy = lightY - n.y;
+            n.x += dx * 0.002;
+            n.y += dy * 0.002;
+          }
+        });
+      });
+    } else if (this.currentMotion === 'scatter') {
+      // Random harmonic twang plucks
+      if (Math.random() < 0.04 && this.threads.length > 0) {
+        const randomThread = this.threads[Math.floor(Math.random() * this.threads.length)];
+        randomThread.pluck(14);
+      }
+    } else if (this.currentMotion === 'visitor') {
+      // 7s Butterfly/Needle visitor drops by
+      this.visitor.angle += 0.03;
+      this.visitor.x = this.width * 0.5 + Math.sin(this.visitor.angle) * (this.width * 0.35);
+      this.visitor.y = this.height * 0.45 + Math.cos(this.visitor.angle * 1.5) * 140;
+
+      // Draw butterfly entity
+      this.ctx.save();
+      this.ctx.fillStyle = '#ff7262';
+      this.ctx.shadowColor = '#f24e1e';
+      this.ctx.shadowBlur = 16;
+      this.ctx.beginPath();
+      this.ctx.arc(this.visitor.x, this.visitor.y, 4.5, 0, Math.PI * 2);
+      this.ctx.fill();
+
+      // Flapping wings
+      const wingFlap = Math.sin(time * 0.02) * 8;
+      this.ctx.strokeStyle = '#a259ff';
+      this.ctx.lineWidth = 2;
+      this.ctx.beginPath();
+      this.ctx.moveTo(this.visitor.x - 8, this.visitor.y - wingFlap);
+      this.ctx.lineTo(this.visitor.x, this.visitor.y);
+      this.ctx.lineTo(this.visitor.x + 8, this.visitor.y - wingFlap);
+      this.ctx.stroke();
+      this.ctx.restore();
+
+      // Pluck threads near visitor
+      this.threads.forEach(t => {
+        t.nodes.forEach(n => {
+          if (Math.hypot(n.x - this.visitor.x, n.y - this.visitor.y) < 28) {
+            t.pluck(8);
+          }
+        });
+      });
+    }
   }
 
   drawPins() {
     this.ctx.save();
     for (const char of this.characters) {
       for (const pin of char.pins) {
-        if (this.pinStyle === 'brass') {
-          this.ctx.shadowColor = 'rgba(0,0,0,0.5)';
-          this.ctx.shadowBlur = 4;
-          this.ctx.shadowOffsetY = 2;
+        this.ctx.shadowColor = 'rgba(0,0,0,0.5)';
+        this.ctx.shadowBlur = 4;
+        this.ctx.shadowOffsetY = 2;
 
-          this.ctx.fillStyle = this.theme.pinFill;
-          this.ctx.beginPath();
-          this.ctx.arc(pin.x, pin.y, 4, 0, Math.PI * 2);
-          this.ctx.fill();
+        this.ctx.fillStyle = this.theme.pinFill;
+        this.ctx.beginPath();
+        this.ctx.arc(pin.x, pin.y, 4, 0, Math.PI * 2);
+        this.ctx.fill();
 
-          this.ctx.strokeStyle = this.theme.pinStroke;
-          this.ctx.lineWidth = 1;
-          this.ctx.stroke();
+        this.ctx.strokeStyle = this.theme.pinStroke;
+        this.ctx.lineWidth = 1;
+        this.ctx.stroke();
 
-          // Highlight
-          this.ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-          this.ctx.beginPath();
-          this.ctx.arc(pin.x - 1, pin.y - 1, 1.2, 0, Math.PI * 2);
-          this.ctx.fill();
-        } else if (this.pinStyle === 'pearl') {
-          this.ctx.fillStyle = '#ffffff';
-          this.ctx.beginPath();
-          this.ctx.arc(pin.x, pin.y, 4.5, 0, Math.PI * 2);
-          this.ctx.fill();
-        } else if (this.pinStyle === 'neon') {
-          this.ctx.fillStyle = '#ffffff';
-          this.ctx.shadowColor = this.theme.pinFill;
-          this.ctx.shadowBlur = 12;
-          this.ctx.beginPath();
-          this.ctx.arc(pin.x, pin.y, 3, 0, Math.PI * 2);
-          this.ctx.fill();
-        }
+        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+        this.ctx.beginPath();
+        this.ctx.arc(pin.x - 1, pin.y - 1, 1.2, 0, Math.PI * 2);
+        this.ctx.fill();
       }
     }
     this.ctx.restore();
@@ -610,7 +768,7 @@ class TypeLoomApp {
   drawCursor(time) {
     const blink = Math.sin(time * 0.006) * 0.5 + 0.5;
     this.ctx.save();
-    this.ctx.strokeStyle = `rgba(229, 179, 103, ${blink * 0.8})`;
+    this.ctx.strokeStyle = `rgba(255, 255, 255, ${blink * 0.7})`;
     this.ctx.lineWidth = 2;
     this.ctx.beginPath();
     this.ctx.moveTo(this.cursorX, this.cursorY);
@@ -620,7 +778,6 @@ class TypeLoomApp {
   }
 }
 
-// Bootstrap once DOM is ready
 window.addEventListener('DOMContentLoaded', () => {
   window.app = new TypeLoomApp();
 });
