@@ -3,131 +3,180 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
-  <title>Type Loom — Tactile Generative Typography</title>
-  <meta name="description" content="Type, and woven threads grow from your letters. Space cuts the yarn, backspace unravels them.">
+  <title>Type Loom — Tactile Generative Typography by Ramya</title>
+  <meta name="description" content="Type to weave living strings and generative typography. An interactive generative art studio by Ramya.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=JetBrains+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
-<body class="mode-type">
-  <div id="app">
-    <!-- Main Interactive Canvas -->
-    <div class="canvas-viewport" id="canvas-viewport">
-      <canvas id="loom-canvas"></canvas>
-    </div>
+<body>
+  <div id="app" class="studio-layout">
+    <!-- Top Header Bar -->
+    <header class="studio-header">
+      <div class="header-left">
+        <span class="project-tag">Type Loom</span>
+        <span class="project-by">by <a href="#" class="author-link" id="author-link">Ramya</a></span>
+      </div>
 
-    <!-- Hidden Typing Input to capture all keyboard / mobile input -->
-    <input type="text" id="type-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" autofocus />
+      <div class="header-center">
+        <div class="artboard-aspect-control" id="artboard-aspect-control">
+          <button class="aspect-btn active" data-aspect="fill" title="Full Screen Canvas">Canvas</button>
+          <button class="aspect-btn" data-aspect="poster" title="4:5 Poster Artboard Frame">4:5 Poster</button>
+          <button class="aspect-btn" data-aspect="square" title="1:1 Square Frame">1:1 Square</button>
+        </div>
+      </div>
 
-    <!-- Top Left: Exact Type Garden Header Controls -->
-    <div class="top-left-header">
-      <div class="top-btn-group">
-        <button id="btn-copy-link" class="tg-pill-btn" title="Copy Shareable Link">
-          <span>Copy code</span>
+      <div class="header-right">
+        <button id="btn-copy-link" class="header-btn" title="Copy project link" aria-label="Copy Link">
+          <span>Copy link</span>
         </button>
-        <button id="btn-coffee" class="tg-pill-btn" title="Support the Project">
+        <button id="btn-coffee" class="header-btn" title="Support Ramya" aria-label="Buy me a coffee">
           <span>☕ Buy me a coffee</span>
         </button>
+        <button id="btn-export-svg" class="header-btn" title="Download Vector SVG" aria-label="Export SVG">
+          <span>SVG</span>
+        </button>
+        <button id="btn-export-png" class="header-btn primary" title="Download High-Res Snapshot" aria-label="Export PNG">
+          <span>Export Image</span>
+        </button>
       </div>
-      <div class="credit-line">
-        a project by <span class="author-name">Adhithya</span>
-      </div>
-    </div>
+    </header>
 
-    <!-- Top Right: Exact Type Garden Segmented Toggle (Type | Poster) -->
-    <div class="top-right-header">
-      <div class="view-toggle" id="view-toggle">
-        <button class="view-btn active" data-view="type">Type</button>
-        <button class="view-btn" data-view="poster">Poster</button>
+    <!-- Studio Workspace with Framed Artboard -->
+    <main class="studio-workspace" id="studio-workspace">
+      <div class="artboard-container frame-fill" id="artboard-container">
+        <canvas id="loom-canvas"></canvas>
+        
+        <!-- Interactive Empty Blinking Cursor State in the Center -->
+        <div id="empty-state" class="empty-state">
+          <div class="centered-prompt">
+            <span class="blinking-needle">|</span>
+            <span class="placeholder-text">Type anything to weave...</span>
+          </div>
+        </div>
       </div>
-    </div>
+    </main>
+
+    <!-- Hidden Input for keyboard capture -->
+    <input type="text" id="type-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" autofocus aria-label="Interactive typing input" />
 
     <!-- Toast Notification -->
-    <div id="toast" class="toast-notification">Copied to clipboard!</div>
+    <div id="toast" class="toast-notification" role="status" aria-live="polite">Link copied!</div>
 
-    <!-- Bottom Left: Exact Type Garden Microcopy Keybindings -->
-    <div class="bottom-left-hints">
-      <span>type to grow</span>
-      <span>space cuts</span>
-      <span>backspace withers</span>
-      <span>enter clears</span>
+    <!-- Bottom Left Keybinding Microcopy -->
+    <div class="keyboard-hints" aria-hidden="true">
+      <span><kbd>Type</kbd> to weave</span>
+      <span><kbd>Space</kbd> cuts yarn</span>
+      <span><kbd>⌫</kbd> unravels</span>
+      <span><kbd>Enter</kbd> clears</span>
+      <span><kbd>Drag</kbd> plucks strings</span>
     </div>
 
-    <!-- Bottom Right (Type View): Exact Type Garden Palette Dots & Export Pills -->
-    <div class="bottom-right-dock" id="bottom-type-dock">
-      <div class="palette-swatch-bar" id="palette-swatches">
-        <!-- Dynamically populated from themes.js -->
-      </div>
-      <div class="export-pill-group">
-        <button id="btn-export-png-mini" class="tg-export-btn" title="Download PNG">PNG</button>
-        <button id="btn-export-svg-mini" class="tg-export-btn" title="Download Vector SVG">SVG</button>
-      </div>
-    </div>
+    <!-- Figma-Inspired Bottom Centered Glass Action Toolbar -->
+    <nav class="figma-bottom-dock" aria-label="Loom Controls">
+      <!-- 1. Color Palette Selector -->
+      <div class="dock-item dropdown-trigger" id="palette-menu-trigger">
+        <div class="dock-label">Palette</div>
+        <div class="palette-indicator" id="current-palette-preview">
+          <div class="preview-dot dot-1"></div>
+          <div class="preview-dot dot-2"></div>
+          <div class="preview-dot dot-3"></div>
+        </div>
+        <span class="chevron">▾</span>
 
-    <!-- Poster View Side Drawer / Panel (Exact Type Garden Motion & Palette layout) -->
-    <aside class="poster-drawer" id="poster-drawer">
-      <div class="drawer-scroll-container">
-        <!-- Motion Section -->
-        <div class="drawer-section">
-          <div class="section-title">MOTION</div>
-          <div class="motion-grid" id="motion-grid">
-            <div class="motion-card active" data-motion="breathe">
-              <div class="card-name">Breathe</div>
-              <div class="card-sub">Slow sway · 3s</div>
-            </div>
-            <div class="motion-card" data-motion="grow-wither">
-              <div class="card-name">Grow & wither</div>
-              <div class="card-sub">Bloom, then back · 6s</div>
-            </div>
-            <div class="motion-card" data-motion="typed">
-              <div class="card-name">Typed</div>
-              <div class="card-sub">Type, cut, repeat · 5s</div>
-            </div>
-            <div class="motion-card" data-motion="gust">
-              <div class="card-name">Gust</div>
-              <div class="card-sub">Wind sweeps through · 4s</div>
-            </div>
-            <div class="motion-card" data-motion="reach">
-              <div class="card-name">Reach</div>
-              <div class="card-sub">Stems follow a light · 6s</div>
-            </div>
-            <div class="motion-card" data-motion="scatter">
-              <div class="card-name">Scatter</div>
-              <div class="card-sub">Random bloom, fade · 6s</div>
-            </div>
-            <div class="motion-card" data-motion="visitor">
-              <div class="card-name">Visitor</div>
-              <div class="card-sub">Butterfly drops by · 7s</div>
-            </div>
+        <!-- Palette Dropdown Popover -->
+        <div class="dock-popover palette-popover" id="palette-popover">
+          <div class="popover-title">Color Palettes</div>
+          <div class="palette-list" id="palette-list">
+            <!-- Dynamically populated from themes.js -->
           </div>
         </div>
+      </div>
 
-        <!-- Palette Section -->
-        <div class="drawer-section">
-          <div class="section-title">PALETTE</div>
-          <div class="palette-grid" id="poster-palette-grid">
-            <!-- Dynamically populated cards with 2 color dots + Aa -->
-          </div>
-        </div>
+      <div class="dock-divider"></div>
 
-        <!-- Poster Export Action Section -->
-        <div class="drawer-section export-section">
-          <div class="section-title">EXPORT POSTER</div>
-          <div class="export-action-grid">
-            <button id="btn-export-poster-png" class="drawer-action-btn primary">
-              <span>🖼️ Export High-Res Poster</span>
+      <!-- 2. Effects & Motion Switcher (5 Working Effects) -->
+      <div class="dock-item dropdown-trigger" id="motion-menu-trigger">
+        <div class="dock-label">Effect</div>
+        <span class="active-effect-name" id="active-effect-name">Breathe</span>
+        <span class="chevron">▾</span>
+
+        <!-- Effects Popover -->
+        <div class="dock-popover motion-popover" id="motion-popover">
+          <div class="popover-title">Kinetic Effects</div>
+          <div class="motion-list">
+            <button class="motion-opt active" data-motion="breathe">
+              <span class="motion-icon">🌊</span>
+              <div class="motion-info">
+                <span class="m-title">Breathe</span>
+                <span class="m-desc">Organic harmonic wave · 3s</span>
+              </div>
             </button>
-            <button id="btn-export-poster-svg" class="drawer-action-btn">
-              <span>📐 Export Vector SVG</span>
+            <button class="motion-opt" data-motion="gust">
+              <span class="motion-icon">⚡</span>
+              <div class="motion-info">
+                <span class="m-title">Wind Gust</span>
+                <span class="m-desc">Dynamic physics breeze · 4s</span>
+              </div>
             </button>
-            <button id="btn-sound-toggle" class="drawer-action-btn secondary">
-              <span id="poster-sound-icon">🔊 Sound On</span>
+            <button class="motion-opt" data-motion="reach">
+              <span class="motion-icon">🧲</span>
+              <div class="motion-info">
+                <span class="m-title">Magnetic Reach</span>
+                <span class="m-desc">Strings follow cursor light · 5s</span>
+              </div>
+            </button>
+            <button class="motion-opt" data-motion="resonate">
+              <span class="motion-icon">🎸</span>
+              <div class="motion-info">
+                <span class="m-title">Resonate</span>
+                <span class="m-desc">Acoustic string twangs · 4s</span>
+              </div>
+            </button>
+            <button class="motion-opt" data-motion="visitor">
+              <span class="motion-icon">🦋</span>
+              <div class="motion-info">
+                <span class="m-title">Luminous Needle</span>
+                <span class="m-desc">Flying visitor loops · 6s</span>
+              </div>
             </button>
           </div>
         </div>
       </div>
-    </aside>
+
+      <div class="dock-divider"></div>
+
+      <!-- 3. Thread Stroke Thickness Slider -->
+      <div class="dock-item stroke-control" title="Thread Thickness">
+        <div class="dock-label">Stroke</div>
+        <input type="range" id="slider-stroke" min="1" max="6" step="0.5" value="2.5" aria-label="Stroke Thickness" />
+        <span id="val-stroke" class="dock-val">2.5px</span>
+      </div>
+
+      <div class="dock-divider"></div>
+
+      <!-- 4. Pin / Bubble Toggle Button -->
+      <button id="btn-toggle-pins" class="dock-btn" title="Toggle Pin Pegs (On / Off)" aria-label="Toggle Pins">
+        <span id="pin-icon">📍</span>
+        <span id="pin-status-text">Pins On</span>
+      </button>
+
+      <div class="dock-divider"></div>
+
+      <!-- 5. Sound Synthesizer Toggle Button -->
+      <button id="btn-toggle-sound" class="dock-btn" title="Toggle Acoustic Harp Sound" aria-label="Toggle Sound">
+        <span id="sound-icon">🔊</span>
+        <span id="sound-text">Audio</span>
+      </button>
+
+      <div class="dock-divider"></div>
+
+      <!-- 6. Clear Canvas Action -->
+      <button id="btn-clear-canvas" class="dock-btn clear" title="Clear Canvas (Enter / Esc)" aria-label="Clear Canvas">
+        <span>🗑️</span>
+      </button>
+    </nav>
   </div>
 
   <script src="audio.js"></script>
