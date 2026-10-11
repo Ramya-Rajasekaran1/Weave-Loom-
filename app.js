@@ -626,11 +626,11 @@ class TypeLoomStudio {
       window.LoomAudio.wake();
       const pos = getPos(clientX, clientY);
 
-      // Check if grabbing any pin within 22px
+      // Check if grabbing any pin within 28px (generous magnetic grab threshold)
       let foundPin = null;
       for (const char of this.characters) {
         for (const pin of char.pins) {
-          if (Math.hypot(pin.x - pos.x, pin.y - pos.y) < 22) {
+          if (Math.hypot(pin.x - pos.x, pin.y - pos.y) < 28) {
             foundPin = pin;
             break;
           }
@@ -665,11 +665,11 @@ class TypeLoomStudio {
         return;
       }
 
-      // Dynamic cursor: grab when hovering over pins, default otherwise
+      // Dynamic cursor: grab when hovering over pins within 28px
       let hoveredPin = false;
       for (const char of this.characters) {
         for (const pin of char.pins) {
-          if (Math.hypot(pin.x - pos.x, pin.y - pos.y) < 18) {
+          if (Math.hypot(pin.x - pos.x, pin.y - pos.y) < 28) {
             hoveredPin = true;
             break;
           }
@@ -824,25 +824,26 @@ class TypeLoomStudio {
       this.ctx.restore();
     }
 
-    // 3. Dynamic Magnetic Repulsion & Harmonic Wobble Dispersion
+    // 3. Dynamic Magnetic Attraction & Harmonic Elastic Tendril on Pins
     for (const char of this.characters) {
       for (const pin of char.pins) {
         if (pin.isDragging) continue;
 
         const distToMouse = Math.hypot(pin.origX - this.mouseCurr.x, pin.origY - this.mouseCurr.y);
-        if (distToMouse < 95 && distToMouse > 0.5) {
-          // Disperse away from cursor with fluid elastic spring & harmonic wave wobble
-          const force = Math.pow((95 - distToMouse) / 95, 1.7) * 20;
-          const angle = Math.atan2(pin.origY - this.mouseCurr.y, pin.origX - this.mouseCurr.x);
-          const wobble = Math.sin(time * 0.008 + (pin.origX + pin.origY) * 0.035) * (force * 0.35);
+        if (distToMouse < 90 && distToMouse > 0.5) {
+          // Attract towards cursor like a magnetic bead
+          const pullIntensity = Math.pow((90 - distToMouse) / 90, 1.4);
+          const pullDist = Math.min(distToMouse * 0.45, pullIntensity * 18);
+          const angle = Math.atan2(this.mouseCurr.y - pin.origY, this.mouseCurr.x - pin.origX);
+          const wobble = Math.sin(time * 0.008 + (pin.origX + pin.origY) * 0.04) * (pullIntensity * 2.5);
 
-          const targetX = pin.origX + Math.cos(angle) * force + Math.sin(time * 0.006) * wobble;
-          const targetY = pin.origY + Math.sin(angle) * force + Math.cos(time * 0.006) * wobble;
+          const targetX = pin.origX + Math.cos(angle) * pullDist + Math.sin(time * 0.006) * wobble;
+          const targetY = pin.origY + Math.sin(angle) * pullDist + Math.cos(time * 0.006) * wobble;
 
           const dx = targetX - pin.x;
           const dy = targetY - pin.y;
-          pin.vx = (pin.vx + dx * 0.28) * 0.72;
-          pin.vy = (pin.vy + dy * 0.28) * 0.72;
+          pin.vx = (pin.vx + dx * 0.32) * 0.70;
+          pin.vy = (pin.vy + dy * 0.32) * 0.70;
           pin.x += pin.vx;
           pin.y += pin.vy;
         } else {
@@ -850,8 +851,8 @@ class TypeLoomStudio {
           const dx = pin.origX - pin.x;
           const dy = pin.origY - pin.y;
           if (Math.hypot(dx, dy) > 0.2 || Math.hypot(pin.vx, pin.vy) > 0.2) {
-            pin.vx = (pin.vx + dx * 0.26) * 0.74;
-            pin.vy = (pin.vy + dy * 0.26) * 0.74;
+            pin.vx = (pin.vx + dx * 0.28) * 0.74;
+            pin.vy = (pin.vy + dy * 0.28) * 0.74;
             pin.x += pin.vx;
             pin.y += pin.vy;
           } else {
@@ -1058,7 +1059,7 @@ class TypeLoomStudio {
       for (const pin of char.pins) {
         const isDragged = pin.isDragging;
         const distToMouse = Math.hypot(pin.x - this.mouseCurr.x, pin.y - this.mouseCurr.y);
-        const isHovered = distToMouse < 24 && !isDragged;
+        const isHovered = distToMouse < 28 && !isDragged;
 
         // Visual Cue 1: Ghost Socket & Elastic Dashed Tension Tether during Drag
         if (isDragged) {
