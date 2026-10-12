@@ -626,16 +626,17 @@ class TypeLoomStudio {
       window.LoomAudio.wake();
       const pos = getPos(clientX, clientY);
 
-      // Check if grabbing any pin within 28px (generous magnetic grab threshold)
+      // Check if grabbing any pin within 32px (finds the closest pin to click)
       let foundPin = null;
+      let closestDist = 32;
       for (const char of this.characters) {
         for (const pin of char.pins) {
-          if (Math.hypot(pin.x - pos.x, pin.y - pos.y) < 28) {
+          const d = Math.hypot(pin.x - pos.x, pin.y - pos.y);
+          if (d < closestDist) {
+            closestDist = d;
             foundPin = pin;
-            break;
           }
         }
-        if (foundPin) break;
       }
 
       if (foundPin) {
@@ -665,11 +666,11 @@ class TypeLoomStudio {
         return;
       }
 
-      // Dynamic cursor: grab when hovering over pins within 28px
+      // Dynamic cursor: grab when hovering over pins within 30px
       let hoveredPin = false;
       for (const char of this.characters) {
         for (const pin of char.pins) {
-          if (Math.hypot(pin.x - pos.x, pin.y - pos.y) < 28) {
+          if (Math.hypot(pin.x - pos.x, pin.y - pos.y) < 30) {
             hoveredPin = true;
             break;
           }
@@ -824,35 +825,17 @@ class TypeLoomStudio {
       this.ctx.restore();
     }
 
-    // 3. Dynamic Magnetic Attraction & Harmonic Elastic Tendril on Pins
+    // 3. Pin Physics: Remain stable at rest positions, spring back smoothly after drag
     for (const char of this.characters) {
       for (const pin of char.pins) {
-        if (pin.isDragging) continue;
-
-        const distToMouse = Math.hypot(pin.origX - this.mouseCurr.x, pin.origY - this.mouseCurr.y);
-        if (distToMouse < 90 && distToMouse > 0.5) {
-          // Attract towards cursor like a magnetic bead
-          const pullIntensity = Math.pow((90 - distToMouse) / 90, 1.4);
-          const pullDist = Math.min(distToMouse * 0.45, pullIntensity * 18);
-          const angle = Math.atan2(this.mouseCurr.y - pin.origY, this.mouseCurr.x - pin.origX);
-          const wobble = Math.sin(time * 0.008 + (pin.origX + pin.origY) * 0.04) * (pullIntensity * 2.5);
-
-          const targetX = pin.origX + Math.cos(angle) * pullDist + Math.sin(time * 0.006) * wobble;
-          const targetY = pin.origY + Math.sin(angle) * pullDist + Math.cos(time * 0.006) * wobble;
-
-          const dx = targetX - pin.x;
-          const dy = targetY - pin.y;
-          pin.vx = (pin.vx + dx * 0.32) * 0.70;
-          pin.vy = (pin.vy + dy * 0.32) * 0.70;
-          pin.x += pin.vx;
-          pin.y += pin.vy;
-        } else {
-          // Elastic harmonic return to rest topology
+        if (!pin.isDragging) {
           const dx = pin.origX - pin.x;
           const dy = pin.origY - pin.y;
           if (Math.hypot(dx, dy) > 0.2 || Math.hypot(pin.vx, pin.vy) > 0.2) {
-            pin.vx = (pin.vx + dx * 0.28) * 0.74;
-            pin.vy = (pin.vy + dy * 0.28) * 0.74;
+            const ax = dx * 0.28;
+            const ay = dy * 0.28;
+            pin.vx = (pin.vx + ax) * 0.74;
+            pin.vy = (pin.vy + ay) * 0.74;
             pin.x += pin.vx;
             pin.y += pin.vy;
           } else {
