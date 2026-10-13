@@ -67,9 +67,6 @@ class TypeLoomStudio {
     this.mousePrev = { x: -999, y: -999 };
     this.mouseCurr = { x: -999, y: -999 };
 
-    // Small minute glowing dots / falling snowflakes
-    this.initSnowFlakes();
-
     // Kinetic Entity States
     this.visitor = { x: 200, y: 200, angle: 0, trail: [] };
     this.shuttles = [
@@ -81,25 +78,26 @@ class TypeLoomStudio {
   }
 
   initSnowFlakes() {
-    const count = 60;
-    const w = this.width || 800;
-    const h = this.height || 600;
+    const count = 85;
+    const w = this.width || this.artboardContainer?.clientWidth || 800;
+    const h = this.height || this.artboardContainer?.clientHeight || 600;
     this.snowFlakes = Array.from({ length: count }, () => ({
       x: Math.random() * w,
       y: Math.random() * h,
-      radius: Math.random() * 1.5 + 0.7, // minute size: 0.7px to 2.2px
-      baseAlpha: Math.random() * 0.45 + 0.35, // 0.35 to 0.8
+      radius: Math.random() * 1.6 + 1.0, // minute size: 1.0px to 2.6px
+      baseAlpha: Math.random() * 0.4 + 0.45, // 0.45 to 0.85
       twinkleSpeed: Math.random() * 0.003 + 0.0015,
       phase: Math.random() * Math.PI * 2,
-      vy: Math.random() * 0.75 + 0.45, // gentle falling speed
-      swayAmp: Math.random() * 0.6 + 0.25, // horizontal sway
-      swayFreq: Math.random() * 0.002 + 0.001,
-      isStar: Math.random() > 0.62 // ~38% have crystalline 4-point glint
+      vy: Math.random() * 0.9 + 0.6, // gentle falling speed
+      swayAmp: Math.random() * 0.5 + 0.25, // horizontal sway
+      swayFreq: Math.random() * 0.0018 + 0.0008,
+      isStar: Math.random() > 0.55 // ~45% have crystalline glint
     }));
   }
 
   init() {
     this.resize();
+    this.initSnowFlakes();
 
     // Smooth continuous resize handling via ResizeObserver
     if (window.ResizeObserver) {
@@ -313,18 +311,24 @@ class TypeLoomStudio {
 
     // Snow / Glowing Dots On/Off Toggle
     if (this.btnToggleFlakes) {
-      this.btnToggleFlakes.addEventListener('click', () => {
+      this.btnToggleFlakes.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
         this.showSnowFlakes = !this.showSnowFlakes;
         if (this.showSnowFlakes) {
-          this.flakesStatusDot.classList.add('active');
-          this.flakesStatusText.textContent = 'Snow: On';
+          if (this.flakesStatusDot) this.flakesStatusDot.classList.add('active');
+          if (this.flakesStatusText) this.flakesStatusText.textContent = 'Snow: On';
           this.btnToggleFlakes.classList.add('active');
-          window.LoomAudio.playPluck(880, 0.55, true);
+          try {
+            if (window.LoomAudio) window.LoomAudio.playPluck(880, 0.55, true);
+          } catch (_) {}
         } else {
-          this.flakesStatusDot.classList.remove('active');
-          this.flakesStatusText.textContent = 'Snow: Off';
+          if (this.flakesStatusDot) this.flakesStatusDot.classList.remove('active');
+          if (this.flakesStatusText) this.flakesStatusText.textContent = 'Snow: Off';
           this.btnToggleFlakes.classList.remove('active');
-          window.LoomAudio.playSnip();
+          try {
+            if (window.LoomAudio) window.LoomAudio.playSnip();
+          } catch (_) {}
         }
       });
     }
@@ -914,7 +918,8 @@ class TypeLoomStudio {
   }
 
   drawSnowFlakes(time) {
-    if (!this.showSnowFlakes) return;
+    if (!this.showSnowFlakes || !this.snowFlakes) return;
+    const now = typeof time === 'number' && !isNaN(time) ? time : performance.now();
     this.ctx.save();
 
     const mouseX = this.mouseCurr.x;
@@ -923,40 +928,40 @@ class TypeLoomStudio {
     for (let i = 0; i < this.snowFlakes.length; i++) {
       const f = this.snowFlakes[i];
 
-      // Update position: Falling with gentle drift & flutter
+      // 1. Fall downward with gentle steady gravity
       f.y += f.vy;
-      f.x += Math.sin(time * f.swayFreq + f.phase) * f.swayAmp;
 
-      // Gentle interactive deflection if mouse moves close
+      // 2. Natural sway / flutter in air
+      f.x += Math.sin(now * f.swayFreq + f.phase) * f.swayAmp;
+
+      // 3. Gentle fluid interaction with mouse
       if (mouseX > 0 && mouseY > 0) {
         const dx = f.x - mouseX;
         const dy = f.y - mouseY;
         const dist = Math.hypot(dx, dy);
         if (dist < 80 && dist > 1) {
-          const push = ((80 - dist) / 80) * 0.9;
+          const push = ((80 - dist) / 80) * 1.1;
           f.x += (dx / dist) * push;
-          f.y += (dy / dist) * push * 0.5;
+          f.y += (dy / dist) * push * 0.4;
         }
       }
 
-      // Wrap around when falling past bottom
-      if (f.y > this.height + 10) {
-        f.y = -10;
+      // 4. Wrap around canvas edges
+      if (f.y > this.height + 15) {
+        f.y = -15;
         f.x = Math.random() * this.width;
       }
-      if (f.x < -10) f.x = this.width + 10;
-      if (f.x > this.width + 10) f.x = -10;
+      if (f.x < -15) f.x = this.width + 15;
+      if (f.x > this.width + 15) f.x = -15;
 
-      // Twinkle / gentle glowing shimmer
-      const currentAlpha = f.baseAlpha + Math.sin(time * f.twinkleSpeed + f.phase) * 0.22;
-      const alpha = Math.max(0.15, Math.min(0.95, currentAlpha));
+      // 5. Shimmering pulse / twinkle
+      const alpha = Math.max(0.35, Math.min(1.0, f.baseAlpha + Math.sin(now * f.twinkleSpeed + f.phase) * 0.25));
 
-      // Draw minute glowing dot / snowflake
-      // 1. Soft celestial radial glow aura
-      const glowR = f.radius * 3.4;
+      // 6. Draw outer radial glowing aura
+      const glowR = Math.max(3.5, f.radius * 3.0);
       const grad = this.ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, glowR);
-      grad.addColorStop(0, `rgba(255, 255, 255, ${alpha})`);
-      grad.addColorStop(0.35, `rgba(210, 240, 255, ${alpha * 0.6})`);
+      grad.addColorStop(0, `rgba(255, 255, 255, ${alpha * 0.95})`);
+      grad.addColorStop(0.35, `rgba(200, 235, 255, ${alpha * 0.6})`);
       grad.addColorStop(1, 'rgba(180, 220, 255, 0)');
 
       this.ctx.fillStyle = grad;
@@ -964,17 +969,21 @@ class TypeLoomStudio {
       this.ctx.arc(f.x, f.y, glowR, 0, Math.PI * 2);
       this.ctx.fill();
 
-      // 2. Solid crisp minute center core
-      this.ctx.fillStyle = `rgba(255, 255, 255, ${Math.min(1, alpha + 0.25)})`;
+      // 7. Crisp bright solid minute core with luminous shadow
+      this.ctx.save();
+      this.ctx.shadowColor = 'rgba(255, 255, 255, 0.9)';
+      this.ctx.shadowBlur = Math.max(3, f.radius * 2.5);
+      this.ctx.fillStyle = `rgba(255, 255, 255, ${Math.min(1, alpha + 0.2)})`;
       this.ctx.beginPath();
-      this.ctx.arc(f.x, f.y, f.radius * 0.75, 0, Math.PI * 2);
+      this.ctx.arc(f.x, f.y, Math.max(1.1, f.radius * 0.8), 0, Math.PI * 2);
       this.ctx.fill();
+      this.ctx.restore();
 
-      // 3. Delicate microscopic 4-point crystalline twinkle glint for select flakes
-      if (f.isStar && f.radius > 1.2 && alpha > 0.45) {
-        const glintLen = f.radius * 2.8;
-        this.ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.75})`;
-        this.ctx.lineWidth = 0.5;
+      // 8. Delicate crystalline 4-point snowflake glint for select flakes
+      if (f.isStar && f.radius >= 1.4 && alpha > 0.45) {
+        const glintLen = f.radius * 2.5;
+        this.ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.85})`;
+        this.ctx.lineWidth = 0.65;
         this.ctx.beginPath();
         this.ctx.moveTo(f.x - glintLen, f.y);
         this.ctx.lineTo(f.x + glintLen, f.y);
