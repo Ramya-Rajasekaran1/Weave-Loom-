@@ -181,6 +181,9 @@ class TypeLoomStudio {
 
       btn.addEventListener('click', () => {
         this.applyTheme(key);
+        try {
+          if (window.LoomAudio) window.LoomAudio.playPluck(523.25, 0.6, true);
+        } catch (_) {}
       });
 
       this.subRibbonPalettes.appendChild(btn);

@@ -323,24 +323,34 @@ html, body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 14px;
   z-index: 60;
   pointer-events: auto;
   max-width: 98vw;
 }
 
-/* --- Sub-Ribbon Row (Stacked On One Horizontal Line Directly Above Dock) --- */
+/* --- Sub-Ribbon Row (Floating Elevated Glass Island Above Dock) --- */
 .dock-sub-ribbon {
   display: none;
-  background: var(--ribbon-bg);
-  border: 1px solid var(--ribbon-border);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border-radius: 12px;
-  padding: 4px 8px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.06);
-  animation: ribbonSlideUp 0.2s var(--ease-expo);
+  background: rgba(14, 16, 26, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(28px) saturate(200%);
+  -webkit-backdrop-filter: blur(28px) saturate(200%);
+  border-radius: 18px;
+  padding: 8px 12px;
+  box-shadow: 
+    0 24px 52px -6px rgba(0, 0, 0, 0.9),
+    0 12px 24px -4px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(255, 255, 255, 0.12),
+    0 0 32px rgba(26, 188, 254, 0.18);
+  animation: ribbonFloatIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   white-space: nowrap;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.dock-sub-ribbon::-webkit-scrollbar {
+  display: none;
 }
 
 .dock-sub-ribbon.open {
@@ -348,21 +358,25 @@ html, body {
   align-items: center;
 }
 
-@keyframes ribbonSlideUp {
+@keyframes ribbonFloatIn {
   0% {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(18px) scale(0.92);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(-4px) scale(1.02);
   }
   100% {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
 }
 
 .sub-ribbon-content {
   display: none;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
   white-space: nowrap;
 }
 
@@ -370,55 +384,84 @@ html, body {
   display: flex;
 }
 
-/* Sub-Ribbon Option Buttons */
+/* Sub-Ribbon Option Buttons (Floating, Tactile & Bigger) */
 .ribbon-opt {
-  background: transparent;
-  border: none;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
   color: #ffffff;
-  padding: 6px 12px;
-  border-radius: 8px;
+  padding: 10px 18px;
+  border-radius: 12px;
   font-family: var(--font-sans);
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 500;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 11px;
   cursor: pointer;
   white-space: nowrap;
   flex-shrink: 0;
-  transition: all 0.15s ease;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
 }
 
 .ribbon-opt:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.13);
+  border-color: rgba(255, 255, 255, 0.24);
+  transform: translateY(-3px) scale(1.03);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.55), 0 0 16px rgba(255, 255, 255, 0.1);
 }
 
 .ribbon-opt.active {
   background: rgba(26, 188, 254, 0.22);
+  border-color: rgba(26, 188, 254, 0.6);
   color: #ffffff;
   font-weight: 600;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(26, 188, 254, 0.35), 0 3px 8px rgba(0, 0, 0, 0.5);
 }
 
 .r-badge {
   font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 700;
   color: #1abcfe;
-  background: rgba(26, 188, 254, 0.14);
-  padding: 2px 5px;
-  border-radius: 4px;
+  background: rgba(26, 188, 254, 0.18);
+  border: 1px solid rgba(26, 188, 254, 0.35);
+  padding: 3px 8px;
+  border-radius: 6px;
+  letter-spacing: 0.04em;
+  transition: all 0.2s ease;
+}
+
+.ribbon-opt:hover .r-badge,
+.ribbon-opt.active .r-badge {
+  background: rgba(26, 188, 254, 0.32);
+  box-shadow: 0 0 12px rgba(26, 188, 254, 0.45);
 }
 
 .r-dots {
   display: flex;
-  gap: 3px;
+  gap: 6px;
   align-items: center;
 }
 
 .r-dot {
-  width: 9px;
-  height: 9px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45), inset 0 0 0 1.2px rgba(255, 255, 255, 0.35);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ribbon-opt:hover .r-dot {
+  transform: scale(1.18);
+}
+
+.r-title {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #f8fafc;
 }
 
 /* --- Main Figma-Inspired Bottom Centered Glass Toolbar --- */
@@ -445,7 +488,7 @@ html, body {
 
 .dock-item {
   background: transparent;
-  border: none;
+  border: 1px solid transparent;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -454,11 +497,19 @@ html, body {
   border-radius: 8px;
   white-space: nowrap;
   flex-shrink: 0;
-  transition: background 0.15s ease;
+  transition: all 0.15s ease;
 }
 
-.dock-item:hover, .dock-item.active {
+.dock-item:hover {
   background: rgba(255, 255, 255, 0.08);
+  transform: translateY(-1px);
+}
+
+.dock-item.active {
+  background: rgba(26, 188, 254, 0.16);
+  border-color: rgba(26, 188, 254, 0.35);
+  box-shadow: 0 0 14px rgba(26, 188, 254, 0.25);
+  transform: translateY(-1px);
 }
 
 .dock-label {
