@@ -25,6 +25,9 @@ class TypeLoomStudio {
     this.btnTogglePins = document.getElementById('btn-toggle-pins');
     this.pinsStatusDot = document.getElementById('pins-status-dot');
     this.pinsStatusText = document.getElementById('pins-status-text');
+    this.btnToggleFlakes = document.getElementById('btn-toggle-flakes');
+    this.flakesStatusDot = document.getElementById('flakes-status-dot');
+    this.flakesStatusText = document.getElementById('flakes-status-text');
     this.sliderStroke = document.getElementById('slider-stroke');
     this.valStroke = document.getElementById('val-stroke');
     this.btnToggleSound = document.getElementById('btn-toggle-sound');
@@ -43,9 +46,10 @@ class TypeLoomStudio {
     this.currentEffect = 'breathe';
     this.effectTime = 0;
 
-    // Pin & Thread State (Clean On/Off Toggle)
+    // Pin & Thread State (Clean On/Off Toggles)
     this.showPins = true;
-    this.threadThickness = 2.6;
+    this.showSnowFlakes = true; // Minute glowing dots/snowflakes falling in the UI by default
+    this.threadThickness = 3.5; // Increased default stroke size
     this.tension = 0.95;
     this.gravity = 0.08;
 
@@ -63,15 +67,8 @@ class TypeLoomStudio {
     this.mousePrev = { x: -999, y: -999 };
     this.mouseCurr = { x: -999, y: -999 };
 
-    // Ambient Silk Dust Motes (Floating micro-particles like Type Garden)
-    this.silkMotes = Array.from({ length: 18 }, () => ({
-      x: Math.random() * 800,
-      y: Math.random() * 600,
-      vx: (Math.random() - 0.5) * 0.4,
-      vy: (Math.random() - 0.5) * 0.3 - 0.1,
-      radius: Math.random() * 1.5 + 0.8,
-      alpha: Math.random() * 0.4 + 0.2
-    }));
+    // Small minute glowing dots / falling snowflakes
+    this.initSnowFlakes();
 
     // Kinetic Entity States
     this.visitor = { x: 200, y: 200, angle: 0, trail: [] };
@@ -81,6 +78,24 @@ class TypeLoomStudio {
     ];
 
     this.init();
+  }
+
+  initSnowFlakes() {
+    const count = 60;
+    const w = this.width || 800;
+    const h = this.height || 600;
+    this.snowFlakes = Array.from({ length: count }, () => ({
+      x: Math.random() * w,
+      y: Math.random() * h,
+      radius: Math.random() * 1.5 + 0.7, // minute size: 0.7px to 2.2px
+      baseAlpha: Math.random() * 0.45 + 0.35, // 0.35 to 0.8
+      twinkleSpeed: Math.random() * 0.003 + 0.0015,
+      phase: Math.random() * Math.PI * 2,
+      vy: Math.random() * 0.75 + 0.45, // gentle falling speed
+      swayAmp: Math.random() * 0.6 + 0.25, // horizontal sway
+      swayFreq: Math.random() * 0.002 + 0.001,
+      isStar: Math.random() > 0.62 // ~38% have crystalline 4-point glint
+    }));
   }
 
   init() {
@@ -134,6 +149,13 @@ class TypeLoomStudio {
       this.baseFontSize = 60;
     } else {
       this.baseFontSize = 96;
+    }
+
+    if (this.snowFlakes) {
+      this.snowFlakes.forEach(f => {
+        if (f.x > this.width) f.x = Math.random() * this.width;
+        if (f.y > this.height) f.y = Math.random() * this.height;
+      });
     }
 
     this.rebuildAllCharacters();
@@ -288,6 +310,24 @@ class TypeLoomStudio {
         window.LoomAudio.playSnip();
       }
     });
+
+    // Snow / Glowing Dots On/Off Toggle
+    if (this.btnToggleFlakes) {
+      this.btnToggleFlakes.addEventListener('click', () => {
+        this.showSnowFlakes = !this.showSnowFlakes;
+        if (this.showSnowFlakes) {
+          this.flakesStatusDot.classList.add('active');
+          this.flakesStatusText.textContent = 'Snow: On';
+          this.btnToggleFlakes.classList.add('active');
+          window.LoomAudio.playPluck(880, 0.55, true);
+        } else {
+          this.flakesStatusDot.classList.remove('active');
+          this.flakesStatusText.textContent = 'Snow: Off';
+          this.btnToggleFlakes.classList.remove('active');
+          window.LoomAudio.playSnip();
+        }
+      });
+    }
 
     // Stroke Thickness Slider
     this.sliderStroke.addEventListener('input', (e) => {
@@ -805,8 +845,8 @@ class TypeLoomStudio {
     this.ctx.fillStyle = vignette;
     this.ctx.fillRect(0, 0, this.width, this.height);
 
-    // 2. Draw Ambient Floating Silk Motes
-    this.drawSilkMotes();
+    // 2. Draw Ambient Falling Glowing Dots / Snowflakes (Toggleable)
+    this.drawSnowFlakes(time);
 
     // 2b. Luminous Cursor Proximity Aura (Evident visual field on hover)
     if (this.mouseCurr.x > 0 && this.mouseCurr.y > 0) {
@@ -873,21 +913,77 @@ class TypeLoomStudio {
     requestAnimationFrame((t) => this.renderLoop(t));
   }
 
-  drawSilkMotes() {
+  drawSnowFlakes(time) {
+    if (!this.showSnowFlakes) return;
     this.ctx.save();
-    this.silkMotes.forEach(m => {
-      m.x += m.vx;
-      m.y += m.vy;
-      if (m.x < 0) m.x = this.width;
-      if (m.x > this.width) m.x = 0;
-      if (m.y < 0) m.y = this.height;
-      if (m.y > this.height) m.y = 0;
 
-      this.ctx.fillStyle = `rgba(255, 255, 255, ${m.alpha})`;
+    const mouseX = this.mouseCurr.x;
+    const mouseY = this.mouseCurr.y;
+
+    for (let i = 0; i < this.snowFlakes.length; i++) {
+      const f = this.snowFlakes[i];
+
+      // Update position: Falling with gentle drift & flutter
+      f.y += f.vy;
+      f.x += Math.sin(time * f.swayFreq + f.phase) * f.swayAmp;
+
+      // Gentle interactive deflection if mouse moves close
+      if (mouseX > 0 && mouseY > 0) {
+        const dx = f.x - mouseX;
+        const dy = f.y - mouseY;
+        const dist = Math.hypot(dx, dy);
+        if (dist < 80 && dist > 1) {
+          const push = ((80 - dist) / 80) * 0.9;
+          f.x += (dx / dist) * push;
+          f.y += (dy / dist) * push * 0.5;
+        }
+      }
+
+      // Wrap around when falling past bottom
+      if (f.y > this.height + 10) {
+        f.y = -10;
+        f.x = Math.random() * this.width;
+      }
+      if (f.x < -10) f.x = this.width + 10;
+      if (f.x > this.width + 10) f.x = -10;
+
+      // Twinkle / gentle glowing shimmer
+      const currentAlpha = f.baseAlpha + Math.sin(time * f.twinkleSpeed + f.phase) * 0.22;
+      const alpha = Math.max(0.15, Math.min(0.95, currentAlpha));
+
+      // Draw minute glowing dot / snowflake
+      // 1. Soft celestial radial glow aura
+      const glowR = f.radius * 3.4;
+      const grad = this.ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, glowR);
+      grad.addColorStop(0, `rgba(255, 255, 255, ${alpha})`);
+      grad.addColorStop(0.35, `rgba(210, 240, 255, ${alpha * 0.6})`);
+      grad.addColorStop(1, 'rgba(180, 220, 255, 0)');
+
+      this.ctx.fillStyle = grad;
       this.ctx.beginPath();
-      this.ctx.arc(m.x, m.y, m.radius, 0, Math.PI * 2);
+      this.ctx.arc(f.x, f.y, glowR, 0, Math.PI * 2);
       this.ctx.fill();
-    });
+
+      // 2. Solid crisp minute center core
+      this.ctx.fillStyle = `rgba(255, 255, 255, ${Math.min(1, alpha + 0.25)})`;
+      this.ctx.beginPath();
+      this.ctx.arc(f.x, f.y, f.radius * 0.75, 0, Math.PI * 2);
+      this.ctx.fill();
+
+      // 3. Delicate microscopic 4-point crystalline twinkle glint for select flakes
+      if (f.isStar && f.radius > 1.2 && alpha > 0.45) {
+        const glintLen = f.radius * 2.8;
+        this.ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.75})`;
+        this.ctx.lineWidth = 0.5;
+        this.ctx.beginPath();
+        this.ctx.moveTo(f.x - glintLen, f.y);
+        this.ctx.lineTo(f.x + glintLen, f.y);
+        this.ctx.moveTo(f.x, f.y - glintLen);
+        this.ctx.lineTo(f.x, f.y + glintLen);
+        this.ctx.stroke();
+      }
+    }
+
     this.ctx.restore();
   }
 
