@@ -789,10 +789,10 @@ class TypeLoomStudio {
     // Watermark
     offCtx.fillStyle = "rgba(255, 255, 255, 0.4)";
     offCtx.font = "500 13px 'JetBrains Mono', monospace";
-    offCtx.fillText("TYPE LOOM · BY RAMYA", 24, this.height - 24);
+    offCtx.fillText("LOOMINA · BY RAMYA", 24, this.height - 24);
 
     const link = document.createElement('a');
-    link.download = `type-loom-ramya-${Date.now()}.png`;
+    link.download = `loomina-ramya-${Date.now()}.png`;
     link.href = off.toDataURL('image/png');
     link.click();
   }
@@ -819,7 +819,7 @@ class TypeLoomStudio {
 
     const svgContent = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${this.width} ${this.height}" width="${this.width}" height="${this.height}">
-  <!-- Type Loom by Ramya -->
+  <!-- Loomina by Ramya -->
   <rect width="100%" height="100%" fill="${this.theme.artboardBg}" />
   <g id="threads">${svgPaths}</g>
   <g id="pins">${svgPins}</g>
@@ -828,7 +828,7 @@ class TypeLoomStudio {
     const blob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.download = `type-loom-ramya-${Date.now()}.svg`;
+    link.download = `loomina-ramya-${Date.now()}.svg`;
     link.href = url;
     link.click();
     URL.revokeObjectURL(url);
