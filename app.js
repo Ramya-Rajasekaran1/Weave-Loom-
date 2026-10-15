@@ -366,7 +366,7 @@ class TypeLoomStudio {
 
     // Coffee
     document.getElementById('btn-coffee').addEventListener('click', () => {
-      window.open('https://buymeacoffee.com', '_blank');
+      window.open('https://buymeacoffee.com/RamyaR', '_blank');
     });
 
     // Exports
